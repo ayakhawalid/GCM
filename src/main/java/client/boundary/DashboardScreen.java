@@ -279,7 +279,7 @@ public class DashboardScreen implements GCMClient.MessageHandler {
         // For now, standard navigateTo.
 
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("/client/boundary/ReportsController.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/client/reports.fxml"));
             Parent root = loader.load();
 
             ReportsController controller = loader.getController();
