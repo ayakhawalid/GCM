@@ -39,14 +39,20 @@ public class MapEditRequestDAO {
 
     public static int createRequest(Connection conn, int mapId, int cityId, int userId, MapChanges changes)
             throws SQLException {
+        return createRequest(conn, mapId, cityId, userId, changes, changes.isDraft() ? "DRAFT" : "PENDING");
+    }
+
+    public static int createRequest(Connection conn, int mapId, int cityId, int userId, MapChanges changes, String status)
+            throws SQLException {
         String json = gson.toJson(changes);
-        String sql = "INSERT INTO map_edit_requests (map_id, city_id, user_id, changes_json, status) VALUES (?, ?, ?, ?, 'PENDING')";
+        String sql = "INSERT INTO map_edit_requests (map_id, city_id, user_id, changes_json, status) VALUES (?, ?, ?, ?, ?)";
 
         try (PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setObject(1, mapId > 0 ? mapId : null, Types.INTEGER);
             stmt.setObject(2, cityId > 0 ? cityId : null, Types.INTEGER);
             stmt.setInt(3, userId);
             stmt.setString(4, json);
+            stmt.setString(5, status != null ? status : "PENDING");
 
             int affected = stmt.executeUpdate();
             if (affected > 0) {

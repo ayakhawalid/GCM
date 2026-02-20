@@ -77,15 +77,16 @@ public class SearchDAO {
 
         String query = "SELECT c.id, c.name, c.description, c.price " +
                 "FROM cities c " +
-                "WHERE LOWER(c.name) LIKE LOWER(?) " +
+                "WHERE LOWER(TRIM(c.name)) LIKE ? " +
                 "ORDER BY c.name";
 
         try (Connection conn = DBConnector.getConnection()) {
             if (conn == null)
                 return results;
 
+            String pattern = "%" + cityName.trim().toLowerCase() + "%";
             PreparedStatement stmt = conn.prepareStatement(query);
-            stmt.setString(1, "%" + cityName.trim() + "%");
+            stmt.setString(1, pattern);
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
@@ -133,15 +134,16 @@ public class SearchDAO {
                 "JOIN maps m ON m.city_id = c.id " +
                 "JOIN map_pois mp ON mp.map_id = m.id " +
                 "JOIN pois p ON p.id = mp.poi_id " +
-                "WHERE LOWER(p.name) LIKE LOWER(?) " +
+                "WHERE LOWER(TRIM(p.name)) LIKE ? " +
                 "ORDER BY c.name, m.name";
 
         try (Connection conn = DBConnector.getConnection()) {
             if (conn == null)
                 return results;
 
+            String pattern = "%" + poiName.trim().toLowerCase() + "%";
             PreparedStatement stmt = conn.prepareStatement(query);
-            stmt.setString(1, "%" + poiName.trim() + "%");
+            stmt.setString(1, pattern);
             ResultSet rs = stmt.executeQuery();
 
             // Group results by city
@@ -216,17 +218,19 @@ public class SearchDAO {
                 "JOIN maps m ON m.city_id = c.id " +
                 "JOIN map_pois mp ON mp.map_id = m.id " +
                 "JOIN pois p ON p.id = mp.poi_id " +
-                "WHERE LOWER(c.name) LIKE LOWER(?) " +
-                "  AND LOWER(p.name) LIKE LOWER(?) " +
+                "WHERE LOWER(TRIM(c.name)) LIKE ? " +
+                "  AND LOWER(TRIM(p.name)) LIKE ? " +
                 "ORDER BY c.name, m.name";
 
         try (Connection conn = DBConnector.getConnection()) {
             if (conn == null)
                 return results;
 
+            String cityPattern = "%" + cityName.trim().toLowerCase() + "%";
+            String poiPattern = "%" + (poiName != null ? poiName.trim() : "").toLowerCase() + "%";
             PreparedStatement stmt = conn.prepareStatement(query);
-            stmt.setString(1, "%" + cityName.trim() + "%");
-            stmt.setString(2, "%" + poiName.trim() + "%");
+            stmt.setString(1, cityPattern);
+            stmt.setString(2, poiPattern);
             ResultSet rs = stmt.executeQuery();
 
             // Group results by city

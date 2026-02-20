@@ -173,19 +173,54 @@ public class PurchaseDAO {
             ResultSet rs = stmt.executeQuery();
 
             if (rs.next()) {
-                // One-time purchase allows view (no expiry) and download
-                // Note: Requirement says "One-time: downloads approved version at purchase
-                // time."
-                // But typically users expect to be able to download it again.
-                // For this implementation, we allow download if purchased.
+                // One-time: allow one download per purchase for this city
+                int purchaseCount = getOneTimePurchaseCount(userId, cityId);
+                int downloadCount = getDownloadCount(userId, cityId);
+                boolean canDownload = downloadCount < purchaseCount;
                 return new EntitlementInfo(cityId, EntitlementInfo.EntitlementType.ONE_TIME,
-                        null, false, true); // Can download, but CANNOT view (viewing is sub only)
+                        null, false, canDownload);
             }
         } catch (SQLException e) {
             System.err.println("Error checking purchase: " + e.getMessage());
         }
 
         return new EntitlementInfo(cityId, EntitlementInfo.EntitlementType.NONE, null, false, false);
+    }
+
+    /**
+     * Returns how many one-time purchases the user has for this city.
+     * Each one-time purchase entitles the user to one download.
+     */
+    public static int getOneTimePurchaseCount(int userId, int cityId) {
+        String query = "SELECT COUNT(*) FROM purchases WHERE user_id = ? AND city_id = ?";
+        try (Connection conn = DBConnector.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, userId);
+            stmt.setInt(2, cityId);
+            ResultSet rs = stmt.executeQuery();
+            return rs.next() ? rs.getInt(1) : 0;
+        } catch (SQLException e) {
+            System.err.println("Error getting one-time purchase count: " + e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Returns how many times the user has recorded a download for this city
+     * (used for one-time entitlement: we only record when downloading via one-time).
+     */
+    public static int getDownloadCount(int userId, int cityId) {
+        String query = "SELECT COUNT(*) FROM download_events WHERE user_id = ? AND city_id = ?";
+        try (Connection conn = DBConnector.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, userId);
+            stmt.setInt(2, cityId);
+            ResultSet rs = stmt.executeQuery();
+            return rs.next() ? rs.getInt(1) : 0;
+        } catch (SQLException e) {
+            System.err.println("Error getting download count: " + e.getMessage());
+            return 0;
+        }
     }
 
     /**
@@ -231,13 +266,13 @@ public class PurchaseDAO {
     public static java.util.List<EntitlementInfo> getUserPurchases(int userId) {
         java.util.List<EntitlementInfo> purchases = new java.util.ArrayList<>();
 
-        // Get subscriptions
+        // Get subscriptions (subscriptions table has start_date, not created_at)
         String subQuery = """
                 SELECT s.city_id, c.name, s.end_date
                 FROM subscriptions s
                 JOIN cities c ON s.city_id = c.id
                 WHERE s.user_id = ?
-                ORDER BY s.created_at DESC
+                ORDER BY s.start_date DESC
                 """;
 
         try (Connection conn = DBConnector.getConnection();
@@ -278,13 +313,17 @@ public class PurchaseDAO {
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
+                int cid = rs.getInt("city_id");
+                // One-time: one download per purchase for this city
+                int purchaseCount = getOneTimePurchaseCount(userId, cid);
+                boolean canDownload = getDownloadCount(userId, cid) < purchaseCount;
                 purchases.add(new EntitlementInfo(
-                        rs.getInt("city_id"),
+                        cid,
                         rs.getString("name"),
                         EntitlementInfo.EntitlementType.ONE_TIME,
                         null, // No expiry for one-time
                         true, // Can view
-                        true // Can download
+                        canDownload
                 ));
             }
         } catch (SQLException e) {
@@ -305,14 +344,14 @@ public class PurchaseDAO {
     public static java.util.List<common.dto.CustomerPurchaseDTO> getPurchasesDetailed(int userId) {
         java.util.List<common.dto.CustomerPurchaseDTO> purchases = new java.util.ArrayList<>();
 
-        // Get subscriptions
+        // Get subscriptions (table has start_date, not created_at)
         String subQuery = """
-                SELECT s.id, s.city_id, c.name, s.price_paid, s.created_at,
-                       s.months, s.start_date, s.end_date, s.is_active
+                SELECT s.id, s.city_id, c.name, s.price_paid, s.start_date,
+                       s.months, s.end_date, s.is_active
                 FROM subscriptions s
                 JOIN cities c ON s.city_id = c.id
                 WHERE s.user_id = ?
-                ORDER BY s.created_at DESC
+                ORDER BY s.start_date DESC
                 """;
 
         try (Connection conn = DBConnector.getConnection();
@@ -335,7 +374,7 @@ public class PurchaseDAO {
                         rs.getInt("city_id"),
                         rs.getString("name"),
                         rs.getDouble("price_paid"),
-                        rs.getTimestamp("created_at"),
+                        rs.getTimestamp("start_date"),
                         rs.getInt("months"),
                         startDate,
                         expiryDate,

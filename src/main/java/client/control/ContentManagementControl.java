@@ -14,6 +14,7 @@ import common.dto.ValidationResult;
 import common.dto.MapEditRequestDTO;
 
 import client.GCMClient;
+import client.LoginController;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -38,6 +39,8 @@ public class ContentManagementControl implements GCMClient.MessageHandler {
         void onMapsReceived(List<MapSummary> maps);
 
         void onMapContentReceived(MapContent content);
+
+        void onPoisForCityReceived(List<common.Poi> pois);
 
         void onValidationResult(ValidationResult result);
 
@@ -102,6 +105,14 @@ public class ContentManagementControl implements GCMClient.MessageHandler {
      */
     public void getMapContent(int mapId) {
         Request request = new Request(MessageType.GET_MAP_CONTENT, mapId);
+        sendRequest(request);
+    }
+
+    /**
+     * Get all POIs for a city (for adding tour stops from any map, or adding existing POI to current map).
+     */
+    public void getPoisForCity(int cityId) {
+        Request request = new Request(MessageType.GET_POIS_FOR_CITY, cityId);
         sendRequest(request);
     }
 
@@ -194,9 +205,11 @@ public class ContentManagementControl implements GCMClient.MessageHandler {
 
     /**
      * Submit multiple changes in a single transaction.
+     * Uses current session so the server records the correct submitter (employee/manager, not customer).
      */
     public void submitMapChanges(MapChanges changes) {
-        Request request = new Request(MessageType.SUBMIT_MAP_CHANGES, changes);
+        String token = LoginController.currentSessionToken;
+        Request request = new Request(MessageType.SUBMIT_MAP_CHANGES, changes, token);
         sendRequest(request);
     }
 
@@ -220,15 +233,23 @@ public class ContentManagementControl implements GCMClient.MessageHandler {
     // ==================== Internal Methods ====================
 
     private void sendRequest(Request request) {
+        if (client == null) {
+            if (callback != null) callback.onError("CONNECTION_ERROR", "Not connected to server");
+            return;
+        }
+        if (!client.ensureConnected()) {
+            if (callback != null) callback.onError("CONNECTION_ERROR", "Could not connect to server. Is the server running?");
+            return;
+        }
         try {
             System.out.println("ContentManagementControl: Sending request - " + request.getType());
             lastRequestType = request.getType();
             client.sendToServer(request);
         } catch (IOException e) {
-            System.out.println("ContentManagementControl: Error sending request");
+            System.out.println("ContentManagementControl: Error sending request: " + e.getMessage());
             e.printStackTrace();
             if (callback != null) {
-                callback.onError("CONNECTION_ERROR", "Failed to send request to server");
+                callback.onError("CONNECTION_ERROR", "Failed to send request to server. Try again or check the server is running.");
             }
         }
     }
@@ -267,17 +288,19 @@ public class ContentManagementControl implements GCMClient.MessageHandler {
                 } else if (first instanceof MapSummary) {
                     callback.onMapsReceived((List<MapSummary>) payload);
                 } else if (first instanceof MapEditRequestDTO) {
-                    // This is the key fix - route MapEditRequestDTO lists properly
                     System.out.println("ContentManagementControl: Routing " + list.size()
                             + " MapEditRequestDTO items to callback");
                     callback.onPendingRequestsReceived((List<MapEditRequestDTO>) payload);
+                } else if (first instanceof Poi) {
+                    callback.onPoisForCityReceived((List<Poi>) payload);
                 }
             } else {
-                // Empty list - use lastRequestType to determine callback
                 if (lastRequestType == MessageType.GET_MAPS_FOR_CITY) {
                     callback.onMapsReceived(new ArrayList<>());
                 } else if (lastRequestType == MessageType.GET_PENDING_MAP_EDITS) {
                     callback.onPendingRequestsReceived(new ArrayList<>());
+                } else if (lastRequestType == MessageType.GET_POIS_FOR_CITY) {
+                    callback.onPoisForCityReceived(new ArrayList<>());
                 } else {
                     callback.onCitiesReceived(new ArrayList<>());
                 }

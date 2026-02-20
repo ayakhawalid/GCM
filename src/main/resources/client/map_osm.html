@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0"/>
+    <title>Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://unpkg.com/maplibre-gl@3/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/maplibre-gl@3/dist/maplibre-gl.js"></script>
+    <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.17/leaflet-maplibre-gl.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; overflow: hidden; }
+        /* No right/bottom so map size is not trapped by containing block – Java sets exact px size */
+        #map {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            overflow: hidden;
+            padding: 0; border: none; margin: 0;
+        }
+        #status { position: absolute; top: 8px; left: 8px; z-index: 9999; padding: 6px 10px; background: rgba(0,0,0,0.8); color: #eee; border-radius: 4px; font-size: 12px; pointer-events: none; }
+        .leaflet-container { width: 100% !important; height: 100% !important; overflow: hidden !important; padding: 0 !important; border: none !important; background: transparent !important; }
+        /* REMOVE THE MAP: hide overlay/shadow panes, not the tile piece */
+        .leaflet-overlay-pane, .leaflet-shadow-pane { display: none !important; }
+        /* KEEP THE INNER PIECE: the tile piece that contains the POIs (the one that gets shifted) */
+        .leaflet-tile-pane {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 1;
+        }
+        .leaflet-marker-pane { z-index: 2; }
+        .leaflet-popup-content { margin: 8px 12px; }
+    </style>
+</head>
+<body>
+<div id="status">Loading map…</div>
+<div id="map"></div>
+<script>
+(function() {
+    var status = document.getElementById('status');
+    var map = null;
+    var tileLayer = null;
+    function showErr(msg) {
+        if (status) status.textContent = msg;
+    }
+    /* Java sets full size – html, body and #map so nothing traps the map in a small viewport */
+    window.setMapContainerSize = function(w, h) {
+        if (w <= 0 || h <= 0) return;
+        var docEl = document.documentElement;
+        var body = document.body;
+        var el = document.getElementById('map');
+        docEl.style.width = w + 'px';
+        docEl.style.height = h + 'px';
+        docEl.style.minWidth = w + 'px';
+        docEl.style.minHeight = h + 'px';
+        if (body) {
+            body.style.width = w + 'px';
+            body.style.height = h + 'px';
+            body.style.minWidth = w + 'px';
+            body.style.minHeight = h + 'px';
+        }
+        if (el) {
+            el.style.width = w + 'px';
+            el.style.height = h + 'px';
+            el.style.minWidth = w + 'px';
+            el.style.minHeight = h + 'px';
+        }
+    };
+    if (typeof L === 'undefined') {
+        showErr('Map library failed to load. Check internet connection.');
+        return;
+    }
+    var mapEl = document.getElementById('map');
+
+    /* Called by Java with exact dimensions – create map ONLY then so whole map (not just POI tile) has that size */
+    window.createMapWithSize = function(w, h) {
+        if (map) return;
+        if (!mapEl || w < 100 || h < 100) return;
+        window.setMapContainerSize(w, h);
+        try {
+            map = L.map('map', { preferCanvas: true }).setView([32.8, 34.99], 13);
+            if (typeof L.maplibreGL === 'function') {
+                try {
+                    tileLayer = L.maplibreGL({
+                        style: 'https://tiles.openfreemap.org/styles/liberty',
+                        attribution: 'OpenFreeMap &copy; OpenMapTiles Data from OpenStreetMap'
+                    }).addTo(map);
+                } catch (e) {
+                    tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+                }
+            } else {
+                tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
+            }
+
+            function syncMapTransform() {
+                if (!map || !mapEl) return;
+                requestAnimationFrame(function() {
+                    if (!map) return;
+                    map.invalidateSize();
+                    map.setView(map.getCenter(), map.getZoom());
+                });
+            }
+            setTimeout(syncMapTransform, 0);
+            setTimeout(syncMapTransform, 100);
+
+            window.setCenter = function(lat, lng, zoom) {
+                if (map) {
+                    map.setView([lat, lng], zoom || 13);
+                    setTimeout(syncMapTransform, 50);
+                }
+            };
+            window.clearMarkers = function() {
+                if (!map) return;
+                (window._markers || []).forEach(function(m) { map.removeLayer(m); });
+                window._markers = [];
+            };
+            window.addMarker = function(id, lat, lng, name) {
+                if (!map) return;
+                var m = L.marker([lat, lng]).addTo(map);
+                if (name) m.bindPopup('<b>' + (name || 'POI') + '</b>');
+                if (!window._markers) window._markers = [];
+                window._markers.push(m);
+            };
+            window.setMapContainerSize = function(nw, nh) {
+                if (nw <= 0 || nh <= 0) return;
+                var d = document.documentElement, b = document.body;
+                d.style.width = d.style.minWidth = nw + 'px';
+                d.style.height = d.style.minHeight = nh + 'px';
+                if (b) { b.style.width = b.style.minWidth = nw + 'px'; b.style.height = b.style.minHeight = nh + 'px'; }
+                if (mapEl) { mapEl.style.width = mapEl.style.minWidth = nw + 'px'; mapEl.style.height = mapEl.style.minHeight = nh + 'px'; }
+                if (map) setTimeout(syncMapTransform, 0);
+            };
+            window.mapInvalidateSize = function() {
+                if (!map || !tileLayer) return;
+                syncMapTransform();
+                setTimeout(function() {
+                    if (!map || !tileLayer) return;
+                    var c = map.getCenter(), z = map.getZoom();
+                    map.removeLayer(tileLayer);
+                    map.addLayer(tileLayer);
+                    map.setView(c, z);
+                    syncMapTransform();
+                }, 80);
+            };
+            map.on('click', function(e) {
+                if (window.app && typeof window.app.onMapClick === 'function') {
+                    window.app.onMapClick(e.latlng.lat, e.latlng.lng);
+                }
+            });
+            if (status) status.textContent = 'Click on the map to add a POI.';
+            if (window.app && typeof window.app.onMapReady === 'function') {
+                window.app.onMapReady();
+            }
+        } catch (e) {
+            showErr('Map error: ' + (e.message || ''));
+        }
+    };
+})();
+</script>
+</body>
+</html>

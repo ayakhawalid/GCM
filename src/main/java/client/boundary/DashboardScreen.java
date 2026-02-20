@@ -301,6 +301,7 @@ public class DashboardScreen implements GCMClient.MessageHandler {
             Stage stage = (Stage) resultArea.getScene().getWindow();
             stage.setScene(new Scene(root, 1000, 700));
             stage.setTitle("Agent Console");
+            stage.setMaximized(true);
             stage.centerOnScreen();
         } catch (IOException e) {
             System.err.println("Error loading agent_console.fxml: " + e.getMessage());
@@ -410,17 +411,44 @@ public class DashboardScreen implements GCMClient.MessageHandler {
 
     @FXML
     private void getAllCities(ActionEvent event) {
-        sendMessage("get_cities");
+        if (client == null) {
+            resultArea.setText("Error: Not connected to server.");
+            return;
+        }
+        try {
+            client.sendToServer(new Request(MessageType.GET_CITIES, null));
+            resultArea.setText("Loading cities...");
+        } catch (IOException e) {
+            resultArea.setText("Error: Could not send request.");
+            e.printStackTrace();
+        }
     }
 
     @FXML
     private void getMaps(ActionEvent event) {
-        String id = cityIdField.getText();
-        if (id.isEmpty()) {
+        String idStr = cityIdField.getText();
+        if (idStr == null || idStr.trim().isEmpty()) {
             resultArea.setText("Error: Please enter a City ID first.");
             return;
         }
-        sendMessage("get_maps " + id);
+        int cityId;
+        try {
+            cityId = Integer.parseInt(idStr.trim());
+        } catch (NumberFormatException e) {
+            resultArea.setText("Error: City ID must be a number.");
+            return;
+        }
+        if (client == null) {
+            resultArea.setText("Error: Not connected to server.");
+            return;
+        }
+        try {
+            client.sendToServer(new Request(MessageType.GET_MAPS_FOR_CITY, cityId));
+            resultArea.setText("Loading maps for city " + cityId + "...");
+        } catch (IOException e) {
+            resultArea.setText("Error: Could not send request.");
+            e.printStackTrace();
+        }
     }
 
     @FXML
@@ -449,6 +477,17 @@ public class DashboardScreen implements GCMClient.MessageHandler {
 
     @FXML
     private void handleLogout(ActionEvent event) {
+        // Tell the server to invalidate the session so the same user can log in again later
+        String token = LoginController.currentSessionToken;
+        if (token != null && !token.isEmpty() && client != null) {
+            try {
+                // Wait for server to process LOGOUT before closing (avoids "already logged in" on next login)
+                client.sendRequestSync(new Request(MessageType.LOGOUT, token, token));
+            } catch (Exception e) {
+                // Continue with local logout even if send fails or times out
+            }
+        }
+
         LoginController.currentUsername = null;
         LoginController.currentUserRole = LoginController.UserRole.ANONYMOUS;
         LoginController.currentSessionToken = null;
@@ -472,8 +511,7 @@ public class DashboardScreen implements GCMClient.MessageHandler {
             Stage stage = (Stage) resultArea.getScene().getWindow();
             stage.setScene(new Scene(root));
             stage.setTitle(title);
-            stage.setWidth(width);
-            stage.setHeight(height);
+            stage.setMaximized(true);
             stage.centerOnScreen();
         } catch (IOException e) {
             resultArea.setText("Error: Could not navigate to screen.");
@@ -509,8 +547,21 @@ public class DashboardScreen implements GCMClient.MessageHandler {
                 if (response.getRequestType() == MessageType.GET_MY_NOTIFICATIONS && response.isOk()) {
                     List<NotificationDTO> notifications = (List<NotificationDTO>) response.getPayload();
                     displayNotifications(notifications);
-                    // Refresh badge count
                     loadNotificationCount();
+                    return;
+                }
+                // City operations: display result or error in result area
+                if (response.getRequestType() == MessageType.GET_CITIES || response.getRequestType() == MessageType.GET_MAPS_FOR_CITY) {
+                    if (response.isOk() && response.getPayload() instanceof List) {
+                        List<?> list = (List<?>) response.getPayload();
+                        StringBuilder sb = new StringBuilder();
+                        for (Object o : list) {
+                            sb.append(o.toString()).append("\n");
+                        }
+                        resultArea.setText(sb.length() > 0 ? sb.toString() : "(No items)");
+                    } else {
+                        resultArea.setText(response.isOk() ? "(No data)" : "Error: " + (response.getErrorMessage() != null ? response.getErrorMessage() : response.getErrorCode()));
+                    }
                     return;
                 }
                 return;

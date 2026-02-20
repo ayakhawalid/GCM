@@ -5,13 +5,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Manages user sessions to prevent concurrent logins.
- * Stores session tokens and tracks which users are currently logged in.
- * 
- * Phase 13: Single Session Per User
- * - Username → activeSessionToken + connectionId mapping
- * - On LOGIN: reject if already active
- * - On disconnect: cleanup session by connectionId
+ * Manages user sessions. Single session per user: if a user is already logged in
+ * somewhere, they must logout first before logging in from another place.
  */
 public class SessionManager {
 
@@ -21,7 +16,7 @@ public class SessionManager {
     // Maps session token → SessionInfo
     private final Map<String, SessionInfo> sessions = new ConcurrentHashMap<>();
 
-    // Maps userId → session token (to check if user already logged in)
+    // Maps userId → single session token (one login per user at a time)
     private final Map<Integer, String> userSessions = new ConcurrentHashMap<>();
 
     // Maps connectionId → session token (for disconnect cleanup)
@@ -58,37 +53,24 @@ public class SessionManager {
     }
 
     /**
-     * Check if a user is already logged in (has active session).
-     * 
-     * @param userId User ID to check
-     * @return true if user has an active session
+     * Check if a user is already logged in (has an active session).
      */
     public boolean isUserLoggedIn(int userId) {
         return userSessions.containsKey(userId);
     }
 
     /**
-     * Create a new session for a user.
-     * 
-     * @param userId   User ID
-     * @param username Username
-     * @param role     User role
-     * @return Session token, or null if user already logged in
+     * Create a new session for a user. Fails if user is already logged in
+     * (single session per user).
      */
     public String createSession(int userId, String username, String role) {
-        // Check if already logged in
         if (isUserLoggedIn(userId)) {
-            System.out.println("⚠ User " + username + " already has active session - concurrent login denied");
+            System.out.println("⚠ User " + username + " already has active session - login denied");
             return null;
         }
-
-        // Generate unique session token
         String token = UUID.randomUUID().toString();
-
-        // Store session
         sessions.put(token, new SessionInfo(userId, username, role));
         userSessions.put(userId, token);
-
         System.out.println("✓ Session created for user: " + username + " (token: " + token.substring(0, 8) + "...)");
         return token;
     }
@@ -171,10 +153,7 @@ public class SessionManager {
     }
 
     /**
-     * Get session by user ID.
-     * 
-     * @param userId User ID
-     * @return Session token or null
+     * Get session token for a user (if logged in).
      */
     public String getSessionToken(int userId) {
         return userSessions.get(userId);
@@ -182,9 +161,6 @@ public class SessionManager {
 
     /**
      * Invalidate session by user ID (force logout).
-     * 
-     * @param userId User ID
-     * @return true if session was found and invalidated
      */
     public boolean invalidateUserSession(int userId) {
         String token = userSessions.get(userId);

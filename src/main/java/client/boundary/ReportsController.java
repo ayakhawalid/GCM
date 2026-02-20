@@ -205,8 +205,9 @@ public class ReportsController implements GCMClient.MessageHandler {
             Parent root = loader.load();
 
             Stage stage = (Stage) statusLabel.getScene().getWindow();
-            stage.setScene(new Scene(root));
+            stage.setScene(new Scene(root, 1000, 700));
             stage.setTitle("GCM Dashboard");
+            stage.setMaximized(true);
             stage.centerOnScreen();
 
         } catch (IOException e) {
@@ -217,7 +218,8 @@ public class ReportsController implements GCMClient.MessageHandler {
                 FXMLLoader loader = new FXMLLoader(getClass().getResource("/client/login.fxml"));
                 Parent root = loader.load();
                 Stage stage = (Stage) statusLabel.getScene().getWindow();
-                stage.setScene(new Scene(root));
+                stage.setScene(new Scene(root, 500, 600));
+                stage.setMaximized(true);
             } catch (IOException ex) {
                 ex.printStackTrace();
             }

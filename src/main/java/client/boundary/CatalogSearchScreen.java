@@ -246,12 +246,10 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
             Parent root = loader.load();
 
             Stage stage = (Stage) backButton.getScene().getWindow();
-            Scene scene = new Scene(root);
-            stage.setScene(scene);
+            stage.setScene(new Scene(root, width, height));
             stage.setTitle(title);
-            stage.setWidth(width);
-            stage.setHeight(height);
             stage.centerOnScreen();
+            javafx.application.Platform.runLater(() -> stage.setMaximized(true));
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -331,14 +329,19 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
             return;
         }
 
-        // Send request
+        // Send request (include session token so server can identify the customer)
+        String token = client.LoginController.currentSessionToken;
+        if (token == null || token.isEmpty()) {
+            updateStatus("⚠️ Session expired - Please log in again", "#f39c12");
+            return;
+        }
         try {
             common.Request req;
             if (months == 0) {
-                req = new common.Request(common.MessageType.PURCHASE_ONE_TIME, new common.dto.PurchaseRequest(cityId));
+                req = new common.Request(common.MessageType.PURCHASE_ONE_TIME, new common.dto.PurchaseRequest(cityId), token);
             } else {
                 req = new common.Request(common.MessageType.PURCHASE_SUBSCRIPTION,
-                        new common.dto.PurchaseRequest(cityId, months));
+                        new common.dto.PurchaseRequest(cityId, months), token);
             }
             // Use searchControl to access client, but searchControl is designed for simple
             // search.

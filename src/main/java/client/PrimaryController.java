@@ -92,8 +92,7 @@ public class PrimaryController {
             javafx.stage.Stage stage = (javafx.stage.Stage) resultArea.getScene().getWindow();
             stage.setScene(new javafx.scene.Scene(root));
             stage.setTitle("GCM - City Catalog");
-            stage.setWidth(1100);
-            stage.setHeight(750);
+            stage.setMaximized(true);
             stage.centerOnScreen();
         } catch (IOException e) {
             resultArea.setText("Error: Could not open search screen.");
@@ -137,8 +136,7 @@ public class PrimaryController {
             javafx.stage.Stage stage = (javafx.stage.Stage) resultArea.getScene().getWindow();
             stage.setScene(new javafx.scene.Scene(root));
             stage.setTitle("GCM - Map Editor");
-            stage.setWidth(1200);
-            stage.setHeight(800);
+            stage.setMaximized(true);
             stage.centerOnScreen();
         } catch (IOException e) {
             resultArea.setText("Error: Could not open map editor.");

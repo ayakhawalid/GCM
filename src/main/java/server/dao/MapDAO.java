@@ -142,24 +142,26 @@ public class MapDAO {
     }
 
     /**
-     * Update an existing map.
+     * Update an existing map (uses provided connection for transaction).
+     */
+    public static boolean updateMap(Connection conn, int mapId, String name, String description) throws SQLException {
+        String query = "UPDATE maps SET name = ?, short_description = ? WHERE id = ?";
+        PreparedStatement stmt = conn.prepareStatement(query);
+        stmt.setString(1, name != null ? name : "");
+        stmt.setString(2, description != null ? description : "");
+        stmt.setInt(3, mapId);
+        int affected = stmt.executeUpdate();
+        System.out.println("MapDAO: Updated map " + mapId + ", affected: " + affected);
+        return affected > 0;
+    }
+
+    /**
+     * Update an existing map (uses own connection).
      */
     public static boolean updateMap(int mapId, String name, String description) {
-        String query = "UPDATE maps SET name = ?, short_description = ? WHERE id = ?";
-
         try (Connection conn = DBConnector.getConnection()) {
-            if (conn == null)
-                return false;
-
-            PreparedStatement stmt = conn.prepareStatement(query);
-            stmt.setString(1, name);
-            stmt.setString(2, description);
-            stmt.setInt(3, mapId);
-
-            int affected = stmt.executeUpdate();
-            System.out.println("MapDAO: Updated map " + mapId + ", affected: " + affected);
-            return affected > 0;
-
+            if (conn == null) return false;
+            return updateMap(conn, mapId, name, description);
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
@@ -167,27 +169,28 @@ public class MapDAO {
     }
 
     /**
-     * Delete a map.
+     * Delete a map (uses own connection).
      */
     public static boolean deleteMap(int mapId) {
-        // Note: CASCADE will delete map_pois entries
-        String query = "DELETE FROM maps WHERE id = ?";
-
         try (Connection conn = DBConnector.getConnection()) {
-            if (conn == null)
-                return false;
-
-            PreparedStatement stmt = conn.prepareStatement(query);
-            stmt.setInt(1, mapId);
-
-            int affected = stmt.executeUpdate();
-            System.out.println("MapDAO: Deleted map " + mapId + ", affected: " + affected);
-            return affected > 0;
-
+            return conn != null && deleteMap(conn, mapId);
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
         }
+    }
+
+    /**
+     * Delete a map (uses provided connection for transaction).
+     */
+    public static boolean deleteMap(Connection conn, int mapId) throws SQLException {
+        // CASCADE will delete map_pois entries
+        String query = "DELETE FROM maps WHERE id = ?";
+        PreparedStatement stmt = conn.prepareStatement(query);
+        stmt.setInt(1, mapId);
+        int affected = stmt.executeUpdate();
+        System.out.println("MapDAO: Deleted map " + mapId + ", affected: " + affected);
+        return affected > 0;
     }
 
     /**

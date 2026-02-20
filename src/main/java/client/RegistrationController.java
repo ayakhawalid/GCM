@@ -212,8 +212,7 @@ public class RegistrationController {
             Stage stage = (Stage) registerButton.getScene().getWindow();
             stage.setScene(new Scene(root));
             stage.setTitle("GCM - Login");
-            stage.setWidth(500);
-            stage.setHeight(700);
+            stage.setMaximized(true);
             stage.centerOnScreen();
         } catch (IOException e) {
             statusLabel.setText("Error loading login page");

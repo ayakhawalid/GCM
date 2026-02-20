@@ -434,8 +434,7 @@ public class ProfileScreen implements GCMClient.MessageHandler {
             Stage stage = (Stage) usernameLabel.getScene().getWindow();
             stage.setScene(new Scene(root));
             stage.setTitle(title);
-            stage.setWidth(width);
-            stage.setHeight(height);
+            stage.setMaximized(true);
             stage.centerOnScreen();
         } catch (IOException e) {
             showError("Navigation failed");

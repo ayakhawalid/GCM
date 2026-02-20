@@ -217,6 +217,9 @@ public enum MessageType {
     GET_ACTIVITY_REPORT,
 
     // ==================== MAP EDIT APPROVALS ====================
+    /** Get all POIs for a city (for tours from different maps, add existing POI to map) */
+    GET_POIS_FOR_CITY,
+
     /** List all pending map edit requests */
     GET_PENDING_MAP_EDITS,
 

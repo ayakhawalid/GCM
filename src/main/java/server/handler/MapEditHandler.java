@@ -6,6 +6,7 @@ import common.Request;
 import common.Response;
 import common.dto.*;
 import server.DBConnector;
+import server.SessionManager;
 import server.dao.*;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -33,6 +34,9 @@ public class MapEditHandler {
 
                 case GET_MAP_CONTENT:
                     return handleGetMapContent(request);
+
+                case GET_POIS_FOR_CITY:
+                    return handleGetPoisForCity(request);
 
                 case SUBMIT_MAP_CHANGES:
                     return handleSubmitMapChanges(request);
@@ -128,6 +132,15 @@ public class MapEditHandler {
         }
 
         return Response.success(request, content);
+    }
+
+    private static Response handleGetPoisForCity(Request request) {
+        if (!(request.getPayload() instanceof Integer)) {
+            return Response.error(request, Response.ERR_VALIDATION, "City ID required");
+        }
+        int cityId = (Integer) request.getPayload();
+        List<Poi> pois = PoiDAO.getPoisForCity(cityId);
+        return Response.success(request, pois);
     }
 
     // ==================== CREATE Operations ====================
@@ -352,6 +365,9 @@ public class MapEditHandler {
         }
 
         try (Connection conn = DBConnector.getConnection()) {
+            if (stop.getPoiId() <= 0 || !TourDAO.poiExists(conn, stop.getPoiId())) {
+                return Response.error(request, Response.ERR_VALIDATION, "Invalid or non-existent POI for tour stop");
+            }
             int stopId = TourDAO.addTourStop(conn, stop);
             if (stopId > 0) {
                 ValidationResult result = ValidationResult.success("Tour stop added successfully");
@@ -372,6 +388,9 @@ public class MapEditHandler {
         TourStopDTO stop = (TourStopDTO) request.getPayload();
 
         try (Connection conn = DBConnector.getConnection()) {
+            if (stop.getPoiId() <= 0 || !TourDAO.poiExists(conn, stop.getPoiId())) {
+                return Response.error(request, Response.ERR_VALIDATION, "Invalid or non-existent POI for tour stop");
+            }
             if (TourDAO.updateTourStop(conn, stop)) {
                 return Response.success(request, ValidationResult.success("Tour stop updated successfully"));
             }
@@ -441,20 +460,55 @@ public class MapEditHandler {
             return Response.success(request, validation);
         }
 
-        try (Connection conn = DBConnector.getConnection()) {
-            // Use userId 1 as default if not authenticated (for testing)
-            int userId = request.getUserId() > 0 ? request.getUserId() : 1;
+        // Resolve user and role from session (content editor → submit for approval; content manager → release directly)
+        String token = request.getSessionToken();
+        SessionManager.SessionInfo session = token != null ? SessionManager.getInstance().validateSession(token) : null;
+        int userId = (session != null ? session.userId : request.getUserId()) > 0
+                ? (session != null ? session.userId : request.getUserId()) : 1;
+        boolean isContentManager = session != null && isManagerRole(session.role);
 
+        if (isContentManager) {
+            // Content Manager: apply changes and release directly (no approval step)
+            try (Connection conn = DBConnector.getConnection()) {
+                if (conn == null) {
+                    return Response.error(request, Response.ERR_DATABASE, "Database connection failed");
+                }
+                conn.setAutoCommit(false);
+                validation = new ValidationResult();
+                try {
+                    applyMapChanges(conn, changes, userId, userId, 0, validation);
+                    conn.commit();
+                    validation.setSuccessMessage("Changes applied and released. Customers can see the new version.");
+                    Integer cityId = changes.getCityId();
+                    if (cityId != null && cityId > 0) {
+                        notifyCustomersAboutMapUpdate(cityId, changes);
+                    }
+                    return Response.success(request, validation);
+                } catch (SQLException e) {
+                    conn.rollback();
+                    return Response.error(request, Response.ERR_DATABASE, "Transaction failed: " + e.getMessage());
+                }
+            } catch (SQLException e) {
+                return Response.error(request, Response.ERR_DATABASE, e.getMessage());
+            }
+        }
+
+        // Content Editor (or unauthenticated): submit for manager approval
+        try (Connection conn = DBConnector.getConnection()) {
             int reqId = MapEditRequestDAO.createRequest(conn,
                     changes.getMapId() != null ? changes.getMapId() : 0,
                     changes.getCityId() != null ? changes.getCityId() : 0,
                     userId,
                     changes);
 
-            System.out.println("MapEditHandler: Created request with ID=" + reqId);
+            boolean asDraft = changes.isDraft();
+            System.out.println("MapEditHandler: Created request with ID=" + reqId + " (status=" + (asDraft ? "DRAFT" : "PENDING") + ")");
 
             if (reqId > 0) {
-                validation = ValidationResult.success("Changes submitted for manager approval. Request ID: " + reqId);
+                String msg = asDraft
+                        ? "Changes saved as draft. You can send to content manager later."
+                        : "Changes submitted for manager approval. Request ID: " + reqId;
+                validation = ValidationResult.success(msg);
                 return Response.success(request, validation);
             }
         } catch (SQLException e) {
@@ -462,6 +516,10 @@ public class MapEditHandler {
             return Response.error(request, Response.ERR_DATABASE, "Database error: " + e.getMessage());
         }
         return Response.error(request, Response.ERR_DATABASE, "Failed to submit request");
+    }
+
+    private static boolean isManagerRole(String role) {
+        return "CONTENT_MANAGER".equals(role) || "COMPANY_MANAGER".equals(role);
     }
 
     private static Response handleApproveMapEdit(Request request) {
@@ -488,125 +546,19 @@ public class MapEditHandler {
             conn.setAutoCommit(false);
 
             try {
-                // Create new city if requested
-                if (changes.isCreateNewCity()) {
-                    int cityId = CityDAO.createCity(conn,
-                            changes.getNewCityName(),
-                            changes.getNewCityDescription(),
-                            changes.getNewCityPrice());
-                    validation.setCreatedCityId(cityId);
-                    changes.setCityId(cityId);
-                }
-
-                // Create new map if requested
-                if (changes.getNewMapName() != null && changes.getCityId() != null) {
-                    int mapId = MapDAO.createMap(conn,
-                            changes.getCityId(),
-                            changes.getNewMapName(),
-                            changes.getNewMapDescription());
-                    validation.setCreatedMapId(mapId);
-                    changes.setMapId(mapId);
-                }
-
-                // Add POIs
-                for (Poi poi : changes.getAddedPois()) {
-                    int poiId = PoiDAO.createPoi(conn, poi);
-                    validation.getCreatedPoiIds().add(poiId);
-                }
-
-                // Update POIs
-                for (Poi poi : changes.getUpdatedPois()) {
-                    PoiDAO.updatePoi(conn, poi);
-                }
-
-                // Delete POIs
-                for (int poiId : changes.getDeletedPoiIds()) {
-                    PoiDAO.deletePoi(conn, poiId);
-                }
-
-                // Link/unlink POIs
-                for (MapChanges.PoiMapLink link : changes.getPoiMapLinks()) {
-                    PoiDAO.linkPoiToMap(conn, link.mapId, link.poiId, link.displayOrder);
-                }
-                for (MapChanges.PoiMapLink link : changes.getPoiMapUnlinks()) {
-                    PoiDAO.unlinkPoiFromMap(conn, link.mapId, link.poiId);
-                }
-
-                // Add tours
-                for (TourDTO tour : changes.getAddedTours()) {
-                    int tourId = TourDAO.createTour(conn, tour);
-                    validation.getCreatedTourIds().add(tourId);
-                }
-
-                // Update tours
-                for (TourDTO tour : changes.getUpdatedTours()) {
-                    TourDAO.updateTour(conn, tour);
-                }
-
-                // Delete tours
-                for (int tourId : changes.getDeletedTourIds()) {
-                    TourDAO.deleteTour(conn, tourId);
-                }
-
-                // Tour stops
-                for (TourStopDTO stop : changes.getAddedStops()) {
-                    TourDAO.addTourStop(conn, stop);
-                }
-                for (TourStopDTO stop : changes.getUpdatedStops()) {
-                    TourDAO.updateTourStop(conn, stop);
-                }
-                for (int stopId : changes.getDeletedStopIds()) {
-                    TourDAO.removeTourStop(conn, stopId);
-                }
-
-                // Create PENDING version (Approved by this act, but system logic might start at
-                // Pending)
-                // Actually, if Manager approves, we might want to set the version to APPROVED
-                // immediately?
-                // But the logic in Phase 3 says "Create PENDING version".
-                // I will keep it as is, or maybe update it to APPROVED?
-                // For now, let's keep it PENDING as per original logic,
-                // assuming there is ANOTHER step for Version Approval, OR maybe this IS the
-                // Version Approval?
-                // The task description says "send it to the approving page... accept it or
-                // not".
-                // If accepted, it should be LIVE.
-                // If I keep it PENDING, it's not live.
-                // Code matches original logic:
-                if (changes.getMapId() != null && changes.getMapId() > 0) {
-                    int creatorId = reqDTO.getUserId() > 0 ? reqDTO.getUserId() : 2;
-                    String description = buildChangesDescription(changes);
-
-                    // Create MapVersion with APPROVED status (since Manager is acting now)
-                    // But MapVersionDAO.createVersion defaults to PENDING.
-                    // I should create it then update it.
-                    int versionId = MapVersionDAO.createVersion(conn, changes.getMapId(), creatorId, description);
-                    if (versionId > 0) {
-                        validation.setCreatedVersionId(versionId);
-
-                        // Mark version as APPROVED
-                        MapVersionDAO.updateStatus(conn, versionId, "APPROVED", request.getUserId(), null);
-
-                        // Log
-                        AuditLogDAO.log(conn, AuditLogDAO.ACTION_VERSION_PUBLISHED, request.getUserId(),
-                                AuditLogDAO.ENTITY_MAP_VERSION, versionId,
-                                "from_request", String.valueOf(reqId));
-                    }
-                }
-
-                // Mark request as APPROVED
-                MapEditRequestDAO.updateStatus(conn, reqId, "APPROVED");
+                int creatorId = reqDTO.getUserId() > 0 ? reqDTO.getUserId() : 2;
+                // approved_by must reference a valid user (FK); avoid 0
+                int approverId = request.getUserId() > 0 ? request.getUserId() : creatorId;
+                applyMapChanges(conn, changes, creatorId, approverId, reqId, validation);
 
                 conn.commit();
                 validation.setSuccessMessage("Request approved and changes applied successfully.");
                 System.out.println("MapEditHandler: Approved request " + reqId);
 
-                // Notify customers who purchased this city about the update
                 Integer cityId = changes.getCityId();
                 if (cityId != null && cityId > 0) {
                     notifyCustomersAboutMapUpdate(cityId, changes);
                 }
-
             } catch (SQLException e) {
                 conn.rollback();
                 System.out.println("MapEditHandler: Transaction rolled back - " + e.getMessage());
@@ -618,6 +570,184 @@ public class MapEditHandler {
         }
 
         return Response.success(request, validation);
+    }
+
+    /**
+     * Applies map changes in a transaction (caller must commit).
+     * Creates/updates city, map, POIs, POI-map links, tours, tour stops, and a map version (APPROVED).
+     *
+     * @param conn               open connection (autoCommit false)
+     * @param changes            the change set
+     * @param creatorUserId      user id for version created_by
+     * @param approverUserId     user id for version approved_by and audit log
+     * @param mapEditRequestId   if > 0, request is marked APPROVED; if 0, direct release (no request)
+     * @param validation         result to fill with created IDs and messages
+     */
+    private static void applyMapChanges(Connection conn, MapChanges changes, int creatorUserId, int approverUserId,
+            int mapEditRequestId, ValidationResult validation) throws SQLException {
+        // approved_by must reference a valid user (FK)
+        if (approverUserId <= 0) approverUserId = creatorUserId;
+
+        // Create new city if requested
+        if (changes.isCreateNewCity()) {
+            int cityId = CityDAO.createCity(conn,
+                    changes.getNewCityName(),
+                    changes.getNewCityDescription(),
+                    changes.getNewCityPrice());
+            validation.setCreatedCityId(cityId);
+            changes.setCityId(cityId);
+        }
+
+        // Create new map only when there is no existing map (employee created a new map in the request)
+        // If mapId is already set, we're editing an existing map — update it, do not create a duplicate
+        boolean hasExistingMap = changes.getMapId() != null && changes.getMapId() > 0;
+        if (!hasExistingMap && changes.getNewMapName() != null && !changes.getNewMapName().isEmpty() && changes.getCityId() != null) {
+            int mapId = MapDAO.createMap(conn,
+                    changes.getCityId(),
+                    changes.getNewMapName(),
+                    changes.getNewMapDescription() != null ? changes.getNewMapDescription() : "");
+            validation.setCreatedMapId(mapId);
+            changes.setMapId(mapId);
+        } else if (hasExistingMap && (changes.getNewMapName() != null || changes.getNewMapDescription() != null)) {
+            // Update existing map name/description (employee changed map info)
+            MapDAO.updateMap(conn, changes.getMapId().intValue(),
+                    changes.getNewMapName() != null ? changes.getNewMapName() : "",
+                    changes.getNewMapDescription() != null ? changes.getNewMapDescription() : "");
+        }
+
+        // Add POIs (only record ids that were actually created so FK references are valid)
+        for (Poi poi : changes.getAddedPois()) {
+            int poiId = PoiDAO.createPoi(conn, poi);
+            if (poiId > 0) validation.getCreatedPoiIds().add(poiId);
+        }
+
+        // Link newly created POIs to the current map (so they appear on this map)
+        if (changes.getMapId() != null && changes.getMapId() > 0 && !validation.getCreatedPoiIds().isEmpty()) {
+            int order = 0;
+            for (int poiId : validation.getCreatedPoiIds()) {
+                if (poiId > 0) PoiDAO.linkPoiToMap(conn, changes.getMapId(), poiId, order++);
+            }
+        }
+
+        // Update POIs
+        for (Poi poi : changes.getUpdatedPois()) {
+            PoiDAO.updatePoi(conn, poi);
+        }
+
+        // Link/unlink POIs (POI can appear in multiple maps of the same city)
+        // Resolve poi_id=0 (new POI from this request) to created POI id so FK is valid
+        java.util.List<Integer> createdPoiIds = validation.getCreatedPoiIds();
+        int nextCreatedPoiIndex = 0;
+        for (MapChanges.PoiMapLink link : changes.getPoiMapLinks()) {
+            int poiId = link.poiId;
+            if (poiId <= 0 && createdPoiIds != null && nextCreatedPoiIndex < createdPoiIds.size()) {
+                poiId = createdPoiIds.get(nextCreatedPoiIndex++);
+            }
+            if (poiId <= 0) continue;
+            PoiDAO.linkPoiToMap(conn, link.mapId, poiId, link.displayOrder);
+        }
+        nextCreatedPoiIndex = 0;
+        for (MapChanges.PoiMapLink link : changes.getPoiMapUnlinks()) {
+            int poiId = link.poiId;
+            if (poiId <= 0 && createdPoiIds != null && nextCreatedPoiIndex < createdPoiIds.size()) {
+                poiId = createdPoiIds.get(nextCreatedPoiIndex++);
+            }
+            if (poiId <= 0) continue;
+            PoiDAO.unlinkPoiFromMap(conn, link.mapId, poiId);
+        }
+
+        // Recompute and store distances between POIs on this map (for tour planning)
+        if (changes.getMapId() != null && changes.getMapId() > 0) {
+            List<Poi> mapPois = PoiDAO.getPoisForMap(changes.getMapId());
+            if (mapPois != null && mapPois.size() >= 2) {
+                try {
+                    PoiDistanceDAO.recomputeAndStoreDistances(conn, mapPois);
+                } catch (SQLException e) {
+                    System.err.println("MapEditHandler: Failed to recompute POI distances: " + e.getMessage());
+                }
+            }
+        }
+
+        // Add tours (tours can include POIs from different maps in the city)
+        java.util.List<Integer> createdTourIds = validation.getCreatedTourIds();
+        for (TourDTO tour : changes.getAddedTours()) {
+            int tourId = TourDAO.createTour(conn, tour);
+            createdTourIds.add(tourId);
+            // Add stops that belong to this new tour (client sends tour_id=0 for new tours)
+            if (tour.getStops() != null && !tour.getStops().isEmpty()) {
+                for (TourStopDTO stop : tour.getStops()) {
+                    int effectiveTourId = stop.getTourId() > 0 ? stop.getTourId() : tourId;
+                    int effectivePoiId = resolvePoiId(stop.getPoiId(), validation.getCreatedPoiIds());
+                    if (effectivePoiId <= 0 || !TourDAO.poiExists(conn, effectivePoiId)) continue;
+                    TourStopDTO resolvedStop = new TourStopDTO(0, effectiveTourId, effectivePoiId,
+                            stop.getPoiName(), stop.getPoiCategory(), stop.getStopOrder(),
+                            stop.getDurationMinutes(), stop.getNotes());
+                    TourDAO.addTourStop(conn, resolvedStop);
+                }
+            }
+        }
+
+        // Update tours
+        for (TourDTO tour : changes.getUpdatedTours()) {
+            TourDAO.updateTour(conn, tour);
+        }
+
+        // Delete tours
+        for (int tourId : changes.getDeletedTourIds()) {
+            TourDAO.deleteTour(conn, tourId);
+        }
+
+        // Tour stops for existing tours only (new tour stops were added above)
+        for (TourStopDTO stop : changes.getAddedStops()) {
+            if (stop.getTourId() <= 0) continue; // already handled via tour.getStops()
+            int effectivePoiId = resolvePoiId(stop.getPoiId(), validation.getCreatedPoiIds());
+            if (effectivePoiId <= 0 || !TourDAO.poiExists(conn, effectivePoiId)) continue;
+            TourStopDTO toInsert = new TourStopDTO(0, stop.getTourId(), effectivePoiId, stop.getPoiName(),
+                    stop.getPoiCategory(), stop.getStopOrder(), stop.getDurationMinutes(), stop.getNotes());
+            TourDAO.addTourStop(conn, toInsert);
+        }
+        for (TourStopDTO stop : changes.getUpdatedStops()) {
+            // Resolve poi_id=0 so tour_stops FK to pois(id) is satisfied
+            int effectivePoiId = resolvePoiId(stop.getPoiId(), validation.getCreatedPoiIds());
+            if (effectivePoiId <= 0 || !TourDAO.poiExists(conn, effectivePoiId)) continue;
+            TourStopDTO toUpdate = new TourStopDTO(stop.getId(), stop.getTourId(), effectivePoiId,
+                    stop.getPoiName(), stop.getPoiCategory(), stop.getStopOrder(),
+                    stop.getDurationMinutes(), stop.getNotes());
+            TourDAO.updateTourStop(conn, toUpdate);
+        }
+        for (int stopId : changes.getDeletedStopIds()) {
+            TourDAO.removeTourStop(conn, stopId);
+        }
+
+        // Delete POIs only after all tour_stops no longer reference them (FK poi_id -> pois(id))
+        for (int poiId : changes.getDeletedPoiIds()) {
+            PoiDAO.deletePoi(conn, poiId);
+        }
+
+        // Create map version and set APPROVED (customers can see and purchase) — skip if this map is being deleted
+        boolean mapBeingDeleted = changes.getDeletedMapIds() != null && changes.getDeletedMapIds().contains(changes.getMapId());
+        if (changes.getMapId() != null && changes.getMapId() > 0 && !mapBeingDeleted) {
+            String description = buildChangesDescription(changes);
+            int versionId = MapVersionDAO.createVersion(conn, changes.getMapId(), creatorUserId, description);
+            if (versionId > 0) {
+                validation.setCreatedVersionId(versionId);
+                MapVersionDAO.updateStatus(conn, versionId, "APPROVED", approverUserId, null);
+                AuditLogDAO.log(conn, AuditLogDAO.ACTION_VERSION_PUBLISHED, approverUserId,
+                        AuditLogDAO.ENTITY_MAP_VERSION, versionId,
+                        "from_request", mapEditRequestId > 0 ? String.valueOf(mapEditRequestId) : "direct");
+            }
+        }
+
+        // Delete maps (e.g. Remove map)
+        if (changes.getDeletedMapIds() != null) {
+            for (int mapIdToDelete : changes.getDeletedMapIds()) {
+                MapDAO.deleteMap(conn, mapIdToDelete);
+            }
+        }
+
+        if (mapEditRequestId > 0) {
+            MapEditRequestDAO.updateStatus(conn, mapEditRequestId, "APPROVED");
+        }
     }
 
     /**
@@ -674,6 +804,20 @@ public class MapEditHandler {
 
         body.append("\nView the updated map in your purchases.");
         return body.toString();
+    }
+
+    /**
+     * Resolve POI id for tour stop / map_pois: use as-is if > 0; if 0 (new POI from this request), use first created id.
+     * Only uses created ids that are > 0 so tour_stops.poi_id FK to pois(id) is satisfied.
+     */
+    private static int resolvePoiId(int poiId, java.util.List<Integer> createdPoiIds) {
+        if (poiId > 0) return poiId;
+        if (createdPoiIds != null) {
+            for (int id : createdPoiIds) {
+                if (id > 0) return id;
+            }
+        }
+        return 0;
     }
 
     /**
@@ -851,6 +995,7 @@ public class MapEditHandler {
         return type == MessageType.GET_CITIES ||
                 type == MessageType.GET_MAPS_FOR_CITY ||
                 type == MessageType.GET_MAP_CONTENT ||
+                type == MessageType.GET_POIS_FOR_CITY ||
                 type == MessageType.SUBMIT_MAP_CHANGES ||
                 type == MessageType.GET_PENDING_MAP_EDITS ||
                 type == MessageType.APPROVE_MAP_EDIT ||

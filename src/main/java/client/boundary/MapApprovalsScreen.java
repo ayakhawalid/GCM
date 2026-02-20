@@ -1,6 +1,7 @@
 package client.boundary;
 
 import client.control.ContentManagementControl;
+import common.Poi;
 import common.dto.*;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -118,10 +119,17 @@ public class MapApprovalsScreen implements ContentManagementControl.ContentCallb
         }
 
         if (!changes.getAddedTours().isEmpty()) {
-            sb.append("• Added ").append(changes.getAddedTours().size()).append(" Tours\n\n");
+            sb.append("• Added ").append(changes.getAddedTours().size()).append(" tour(s):\n");
+            changes.getAddedTours().forEach(
+                    t -> sb.append("  + ").append(t.getName()).append(" (").append(t.getEstimatedDurationMinutes()).append(" min)\n"));
+            sb.append("\n");
         }
-
-        // Add more details as needed
+        if (!changes.getUpdatedTours().isEmpty()) {
+            sb.append("• Updated ").append(changes.getUpdatedTours().size()).append(" tour(s)\n\n");
+        }
+        if (!changes.getDeletedTourIds().isEmpty()) {
+            sb.append("• Deleted ").append(changes.getDeletedTourIds().size()).append(" tour(s)\n\n");
+        }
 
         if (sb.length() == 0)
             return "No visible changes recorded.";
@@ -177,7 +185,8 @@ public class MapApprovalsScreen implements ContentManagementControl.ContentCallb
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/client/dashboard.fxml"));
             Parent root = loader.load();
             Stage stage = (Stage) backButton.getScene().getWindow();
-            stage.setScene(new Scene(root));
+            stage.setScene(new Scene(root, 1000, 700));
+            stage.setMaximized(true);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -218,6 +227,11 @@ public class MapApprovalsScreen implements ContentManagementControl.ContentCallb
 
     @Override
     public void onMapContentReceived(MapContent content) {
+    }
+
+    @Override
+    public void onPoisForCityReceived(List<Poi> pois) {
+        // Not used on approvals screen
     }
 
     @Override

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0"/>
+    <title>Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        html, body, #map {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #demo-label { position: absolute; top: 8px; left: 8px; z-index: 1000; padding: 6px 10px; background: rgba(0,0,0,0.75); color: #fff; font-size: 12px; border-radius: 4px; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="demo-label">Demo: Cairo (OSM)</div>
+    <div id="map"></div>
+    <script>
+        var map = null;
+
+        function initMap() {
+            if (map) {
+                map.remove();
+                map = null;
+            }
+
+            map = L.map('map', {
+                zoomAnimation: false,
+                fadeAnimation: false,
+                markerZoomAnimation: false
+            }).setView([30.0444, 31.2357], 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap',
+                updateWhenZooming: false
+            }).addTo(map);
+
+            setTimeout(function () {
+                map.invalidateSize(true);
+            }, 300);
+
+            window._markers = [];
+            map.on('click', function(e) {
+                L.marker(e.latlng).addTo(map).bindPopup('New POI');
+                if (window.javafx && typeof window.javafx.poiAdded === 'function') {
+                    window.javafx.poiAdded(e.latlng.lat, e.latlng.lng);
+                }
+                if (window.app && typeof window.app.onMapClick === 'function') {
+                    window.app.onMapClick(e.latlng.lat, e.latlng.lng);
+                }
+            });
+
+            if (window.app && typeof window.app.onMapReady === 'function') {
+                window.app.onMapReady();
+            }
+        }
+
+        window.mapInvalidateSize = function() {
+            if (map) map.invalidateSize(true);
+        };
+
+        window.setCenter = function(lat, lng, zoom) {
+            if (map) map.setView([lat, lng], zoom || 13);
+        };
+
+        window.clearMarkers = function() {
+            if (!map) return;
+            (window._markers || []).forEach(function(m) { map.removeLayer(m); });
+            window._markers = [];
+        };
+
+        window.addMarker = function(id, lat, lng, name) {
+            if (!map) return;
+            var m = L.marker([lat, lng]).addTo(map);
+            if (name) m.bindPopup('<b>' + (name || 'POI') + '</b>');
+            if (!window._markers) window._markers = [];
+            window._markers.push(m);
+        };
+    </script>
+</body>
+</html>

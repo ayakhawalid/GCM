@@ -75,16 +75,18 @@ public class PoiDAO {
      * @return created POI ID, or -1 on failure
      */
     public static int createPoi(Connection conn, Poi poi) throws SQLException {
-        String query = "INSERT INTO pois (city_id, name, location, category, short_explanation, is_accessible) " +
-                "VALUES (?, ?, ?, ?, ?, ?)";
+        String query = "INSERT INTO pois (city_id, name, location, latitude, longitude, category, short_explanation, is_accessible) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
         PreparedStatement stmt = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
         stmt.setInt(1, poi.getCityId());
         stmt.setString(2, poi.getName());
         stmt.setString(3, poi.getLocation());
-        stmt.setString(4, poi.getCategory());
-        stmt.setString(5, poi.getShortExplanation());
-        stmt.setBoolean(6, poi.isAccessible());
+        setDoubleOrNull(stmt, 4, poi.getLatitude());
+        setDoubleOrNull(stmt, 5, poi.getLongitude());
+        stmt.setString(6, poi.getCategory());
+        stmt.setString(7, poi.getShortExplanation());
+        stmt.setBoolean(8, poi.isAccessible());
 
         int affected = stmt.executeUpdate();
 
@@ -118,16 +120,18 @@ public class PoiDAO {
      * Update an existing POI.
      */
     public static boolean updatePoi(Connection conn, Poi poi) throws SQLException {
-        String query = "UPDATE pois SET name = ?, location = ?, category = ?, " +
+        String query = "UPDATE pois SET name = ?, location = ?, latitude = ?, longitude = ?, category = ?, " +
                 "short_explanation = ?, is_accessible = ? WHERE id = ?";
 
         PreparedStatement stmt = conn.prepareStatement(query);
         stmt.setString(1, poi.getName());
         stmt.setString(2, poi.getLocation());
-        stmt.setString(3, poi.getCategory());
-        stmt.setString(4, poi.getShortExplanation());
-        stmt.setBoolean(5, poi.isAccessible());
-        stmt.setInt(6, poi.getId());
+        setDoubleOrNull(stmt, 3, poi.getLatitude());
+        setDoubleOrNull(stmt, 4, poi.getLongitude());
+        stmt.setString(5, poi.getCategory());
+        stmt.setString(6, poi.getShortExplanation());
+        stmt.setBoolean(7, poi.isAccessible());
+        stmt.setInt(8, poi.getId());
 
         int affected = stmt.executeUpdate();
         System.out.println("PoiDAO: Updated POI " + poi.getId() + ", affected: " + affected);
@@ -273,13 +277,32 @@ public class PoiDAO {
      * Extract POI from ResultSet.
      */
     private static Poi extractPoi(ResultSet rs) throws SQLException {
+        Double lat = null, lng = null;
+        try {
+            double d = rs.getDouble("latitude");
+            if (!rs.wasNull()) lat = d;
+            d = rs.getDouble("longitude");
+            if (!rs.wasNull()) lng = d;
+        } catch (SQLException ignored) {
+            // columns may not exist in older DB
+        }
         return new Poi(
                 rs.getInt("id"),
                 rs.getInt("city_id"),
                 rs.getString("name"),
                 rs.getString("location"),
+                lat,
+                lng,
                 rs.getString("category"),
                 rs.getString("short_explanation"),
                 rs.getBoolean("is_accessible"));
+    }
+
+    private static void setDoubleOrNull(PreparedStatement stmt, int index, Double value) throws SQLException {
+        if (value != null) {
+            stmt.setDouble(index, value);
+        } else {
+            stmt.setNull(index, java.sql.Types.DOUBLE);
+        }
     }
 }

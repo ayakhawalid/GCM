@@ -262,8 +262,7 @@ public class PricingScreen implements GCMClient.MessageHandler {
             Stage stage = (Stage) pricesTable.getScene().getWindow();
             stage.setScene(new Scene(root));
             stage.setTitle(title);
-            stage.setWidth(width);
-            stage.setHeight(height);
+            stage.setMaximized(true);
             stage.centerOnScreen();
         } catch (IOException e) {
             showError("Could not navigate to screen");

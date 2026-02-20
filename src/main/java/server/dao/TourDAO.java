@@ -126,13 +126,7 @@ public class TourDAO {
             if (keys.next()) {
                 int tourId = keys.getInt(1);
                 System.out.println("TourDAO: Created tour with ID " + tourId);
-
-                // Create stops if any
-                for (TourStopDTO stop : tour.getStops()) {
-                    stop.setTourId(tourId);
-                    addTourStop(conn, stop);
-                }
-
+                // Caller must add stops (with valid poi_id) to avoid FK violation on tour_stops.poi_id
                 return tourId;
             }
         }

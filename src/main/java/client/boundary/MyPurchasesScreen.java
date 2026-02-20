@@ -1,6 +1,7 @@
 package client.boundary;
 
 import client.GCMClient;
+import client.LoginController;
 import common.MessageType;
 import common.Request;
 import common.Response;
@@ -64,22 +65,26 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
         subExpiryCol.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().dateInfo));
 
         subActionCol.setCellFactory(col -> new TableCell<PurchaseItem, String>() {
-            private final Button btn = new Button("Download");
+            private final Button btn = new Button("View maps");
             {
                 btn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white;");
                 btn.setOnAction(e -> {
-                    PurchaseItem item = getTableView().getItems().get(getIndex());
-                    handleDownload(item);
+                    PurchaseItem row = getTableView().getItems().get(getIndex());
+                    handleDownload(row);
                 });
             }
 
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
-                if (empty)
+                if (empty) {
                     setGraphic(null);
-                else
+                } else {
+                    PurchaseItem row = getTableRow() != null ? getTableRow().getItem() : null;
+                    btn.setDisable(row != null && !row.canDownload);
+                    btn.setTooltip(row != null && !row.canDownload ? new Tooltip("Subscription expired") : new Tooltip("View all city maps"));
                     setGraphic(btn);
+                }
             }
         });
 
@@ -88,22 +93,26 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
         purchaseDateCol.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().dateInfo));
 
         purchaseActionCol.setCellFactory(col -> new TableCell<PurchaseItem, String>() {
-            private final Button btn = new Button("Download");
+            private final Button btn = new Button("Download map");
             {
                 btn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white;");
                 btn.setOnAction(e -> {
-                    PurchaseItem item = getTableView().getItems().get(getIndex());
-                    handleDownload(item);
+                    PurchaseItem row = getTableView().getItems().get(getIndex());
+                    handleDownload(row);
                 });
             }
 
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
-                if (empty)
+                if (empty) {
                     setGraphic(null);
-                else
+                } else {
+                    PurchaseItem row = getTableRow() != null ? getTableRow().getItem() : null;
+                    btn.setDisable(row != null && !row.canDownload);
+                    btn.setTooltip(row != null && !row.canDownload ? new Tooltip("One-time purchase: already downloaded") : null);
                     setGraphic(btn);
+                }
             }
         });
 
@@ -124,23 +133,29 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
     }
 
     private void loadData() {
-        if (gcmClient != null) {
-            try {
-                statusLabel.setText("Loading purchases...");
-                gcmClient.sendToServer(new Request(MessageType.GET_MY_PURCHASES, null));
-            } catch (IOException e) {
-                statusLabel.setText("Failed to load purchases");
-                e.printStackTrace();
-            }
+        if (gcmClient == null)
+            return;
+        String token = LoginController.currentSessionToken;
+        if (token == null || token.isEmpty()) {
+            statusLabel.setText("Login required to view purchases.");
+            return;
+        }
+        try {
+            statusLabel.setText("Loading purchases...");
+            gcmClient.sendToServer(new Request(MessageType.GET_MY_PURCHASES, null, token));
+        } catch (IOException e) {
+            statusLabel.setText("Failed to load purchases");
+            e.printStackTrace();
         }
     }
 
     private void handleDownload(PurchaseItem item) {
         if (gcmClient == null)
             return;
+        String token = LoginController.currentSessionToken;
         try {
-            gcmClient.sendToServer(new Request(MessageType.DOWNLOAD_MAP_VERSION, item.cityId));
-            statusLabel.setText("Downloading " + item.cityName + "...");
+            gcmClient.sendToServer(new Request(MessageType.DOWNLOAD_MAP_VERSION, item.cityId, token));
+            statusLabel.setText(item.isSubscription ? "Opening " + item.cityName + " maps..." : "Downloading " + item.cityName + "...");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -161,8 +176,7 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
             Stage stage = (Stage) statusLabel.getScene().getWindow();
             stage.setScene(new Scene(root));
             stage.setTitle(title);
-            stage.setWidth(width);
-            stage.setHeight(height);
+            stage.setMaximized(true);
             stage.centerOnScreen();
         } catch (IOException e) {
             e.printStackTrace();
@@ -182,9 +196,9 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
                 }
 
                 if (response.getRequestType() == MessageType.DOWNLOAD_MAP_VERSION) {
-                    statusLabel.setText("Download Complete!");
+                    statusLabel.setText("Content loaded.");
                     statusLabel.setStyle("-fx-text-fill: green;");
-                    showAlert("Success", "Map downloaded successfully!");
+                    showAlert("Success", "Content loaded successfully. You can view or download the map.");
                 } else if (response.getRequestType() == MessageType.GET_MY_PURCHASES) {
                     Object payload = response.getPayload();
                     if (payload instanceof List) {
@@ -213,7 +227,8 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
                     item.getCityName(),
                     status,
                     dateInfo,
-                    item.isSubscription());
+                    item.isSubscription(),
+                    item.isCanDownload());
 
             if (item.isSubscription()) {
                 subscriptionsList.add(pi);
@@ -238,13 +253,19 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
         String status;
         String dateInfo; // Expiry or Purchase Date
         boolean isSubscription;
+        boolean canDownload;
 
         public PurchaseItem(int cityId, String cityName, String status, String dateInfo, boolean isSubscription) {
+            this(cityId, cityName, status, dateInfo, isSubscription, true);
+        }
+
+        public PurchaseItem(int cityId, String cityName, String status, String dateInfo, boolean isSubscription, boolean canDownload) {
             this.cityId = cityId;
             this.cityName = cityName;
             this.status = status;
             this.dateInfo = dateInfo;
             this.isSubscription = isSubscription;
+            this.canDownload = canDownload;
         }
     }
 }

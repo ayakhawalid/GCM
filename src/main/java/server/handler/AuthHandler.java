@@ -111,15 +111,13 @@ public class AuthHandler {
             return Response.error(request, Response.ERR_UNAUTHORIZED, "Invalid username or password");
         }
 
-        // Check for concurrent login
+        // Single session per user: if already logged in, invalidate old session so re-login works (e.g. after logout)
         SessionManager sessions = SessionManager.getInstance();
         if (sessions.isUserLoggedIn(user.id)) {
-            System.out.println("✗ Concurrent login denied for: " + login.getUsername());
-            return Response.error(request, Response.ERR_UNAUTHORIZED,
-                    "User already logged in from another device. Please logout first.");
+            System.out.println("⚠ User already had session - invalidating old session for re-login: " + login.getUsername());
+            sessions.invalidateUserSession(user.id);
         }
 
-        // Create session
         String token = sessions.createSession(user.id, user.username, user.role);
 
         if (token == null) {
@@ -144,7 +142,7 @@ public class AuthHandler {
 
     /**
      * Handle user logout.
-     * Expected payload: session token (String)
+     * Token can be in payload (String) or in request session token.
      */
     private static Response handleLogout(Request request) {
         System.out.println("═══ LOGOUT ═══");
@@ -152,6 +150,9 @@ public class AuthHandler {
         String token = null;
         if (request.getPayload() instanceof String) {
             token = (String) request.getPayload();
+        }
+        if ((token == null || token.isEmpty()) && request.getSessionToken() != null) {
+            token = request.getSessionToken();
         }
 
         if (token == null || token.isEmpty()) {

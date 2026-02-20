@@ -77,9 +77,12 @@ public class GCMServer extends AbstractServer {
                 try {
                     Response response = dispatchRequest(request, clientId);
                     System.out.println("Sending Response: " + (response.isOk() ? "OK" : "ERROR"));
-                    client.sendToClient(response);
+                    // ObjectOutputStream is not thread-safe: only one thread may send to a client at a time
+                    synchronized (client) {
+                        client.sendToClient(response);
+                    }
                 } catch (Exception e) {
-                    System.out.println("!!! EXCEPTION in request handling: " + e.getMessage());
+                    System.out.println("!!! EXCEPTION in request handling or send: " + e.getMessage());
                     e.printStackTrace();
                 }
                 return;
@@ -87,7 +90,9 @@ public class GCMServer extends AbstractServer {
 
             // ==================== LEGACY PROTOCOL (String commands) ====================
             if (msg instanceof String) {
-                handleLegacyMessage((String) msg, client);
+                synchronized (client) {
+                    handleLegacyMessage((String) msg, client);
+                }
                 return;
             }
 
@@ -236,11 +241,16 @@ public class GCMServer extends AbstractServer {
         // CASE 2: Get maps for a specific city (Format: "get_maps [id]")
         else if (request.startsWith("get_maps ")) {
             try {
-                int cityId = Integer.parseInt(request.split(" ")[1]);
+                String idPart = request.trim().split("\\s+")[1];
+                int cityId = Integer.parseInt(idPart);
                 ArrayList<common.Map> maps = MySQLController.getMapsForCity(cityId);
-                client.sendToClient(maps);
+                client.sendToClient(maps != null ? maps : new ArrayList<common.Map>());
+            } catch (NumberFormatException e) {
+                System.out.println("Error parsing ID for get_maps: " + e.getMessage());
+                client.sendToClient("Error: City ID must be a number.");
             } catch (Exception e) {
-                System.out.println("Error parsing ID for get_maps");
+                System.out.println("Error in get_maps: " + e.getMessage());
+                client.sendToClient("Error: Could not load maps for city - " + e.getMessage());
             }
         }
 

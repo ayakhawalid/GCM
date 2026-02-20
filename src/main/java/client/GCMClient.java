@@ -59,6 +59,23 @@ public class GCMClient extends AbstractClient {
     }
 
     /**
+     * Ensure the client is connected; if not, try to reconnect.
+     * Call this before sending to avoid "failed to send request" when connection was closed (e.g. after logout).
+     *
+     * @return true if connected (or reconnected), false if connection could not be established
+     */
+    public boolean ensureConnected() {
+        if (isConnected()) return true;
+        try {
+            openConnection();
+            return isConnected();
+        } catch (IOException e) {
+            System.err.println("GCMClient: Reconnect failed: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Set the current message handler (the active screen).
      */
     public void setMessageHandler(MessageHandler handler) {

@@ -351,8 +351,7 @@ public class AdminCustomersScreen implements GCMClient.MessageHandler {
             Stage stage = (Stage) customersTable.getScene().getWindow();
             stage.setScene(new Scene(root));
             stage.setTitle(title);
-            stage.setWidth(width);
-            stage.setHeight(height);
+            stage.setMaximized(true);
             stage.centerOnScreen();
         } catch (IOException e) {
             e.printStackTrace();

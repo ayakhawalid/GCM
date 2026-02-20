@@ -448,6 +448,7 @@ public class SupportScreen {
             Stage stage = (Stage) ticketListView.getScene().getWindow();
             stage.setScene(new Scene(root, 1000, 700));
             stage.setTitle("GCM Dashboard");
+            stage.setMaximized(true);
         } catch (IOException e) {
             e.printStackTrace();
         }

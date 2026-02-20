@@ -421,6 +421,7 @@ public class AgentConsoleScreen {
             Stage stage = (Stage) queueTabPane.getScene().getWindow();
             stage.setScene(new Scene(root, 1000, 700));
             stage.setTitle("GCM Dashboard");
+            stage.setMaximized(true);
         } catch (IOException e) {
             e.printStackTrace();
         }

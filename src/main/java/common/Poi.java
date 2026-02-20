@@ -13,6 +13,8 @@ public class Poi implements Serializable {
     private int cityId;
     private String name;
     private String location; // e.g., "32.7940,34.9896" (lat,lng) or description
+    private Double latitude;  // for map display and distance calculation
+    private Double longitude;
     private String category; // e.g., "Beach", "Museum", "Restaurant", "Historic"
     private String shortExplanation; // Brief description
     private boolean accessible; // Wheelchair accessible
@@ -22,10 +24,17 @@ public class Poi implements Serializable {
 
     public Poi(int id, int cityId, String name, String location,
             String category, String shortExplanation, boolean accessible) {
+        this(id, cityId, name, location, null, null, category, shortExplanation, accessible);
+    }
+
+    public Poi(int id, int cityId, String name, String location,
+            Double latitude, Double longitude, String category, String shortExplanation, boolean accessible) {
         this.id = id;
         this.cityId = cityId;
         this.name = name;
         this.location = location;
+        this.latitude = latitude;
+        this.longitude = longitude;
         this.category = category;
         this.shortExplanation = shortExplanation;
         this.accessible = accessible;
@@ -62,6 +71,22 @@ public class Poi implements Serializable {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
     }
 
     public String getCategory() {

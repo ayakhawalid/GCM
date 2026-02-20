@@ -8,6 +8,7 @@ import common.dto.EntitlementInfo;
 import common.dto.PurchaseRequest;
 import common.dto.PurchaseResponse;
 import server.dao.PurchaseDAO;
+import server.SessionManager;
 
 import java.time.LocalDate;
 
@@ -208,12 +209,18 @@ public class PurchaseHandler {
         EntitlementInfo entitlement = PurchaseDAO.getEntitlement(userId, cityId);
 
         if (entitlement.isCanDownload()) {
-            PurchaseDAO.recordDownload(userId, cityId);
+            // Only record in download_events for one-time (so subscription downloads don't use one-time slots)
+            if (entitlement.getType() == EntitlementInfo.EntitlementType.ONE_TIME) {
+                PurchaseDAO.recordDownload(userId, cityId);
+            }
             server.dao.DailyStatsDAO.increment(cityId, server.dao.DailyStatsDAO.Metric.DOWNLOAD);
             return Response.success(request, "Download authorized and recorded");
-        } else {
-            return Response.error(request, Response.ERR_UNAUTHORIZED, "Purchase required to download");
         }
+        if (entitlement.getType() == EntitlementInfo.EntitlementType.ONE_TIME) {
+            return Response.error(request, Response.ERR_FORBIDDEN,
+                    "One-time download limit reached for this city. You can purchase again for another download.");
+        }
+        return Response.error(request, Response.ERR_UNAUTHORIZED, "Purchase required to download");
     }
 
     private static Response handleRecordViewEvent(Request request) {
@@ -247,35 +254,10 @@ public class PurchaseHandler {
     }
 
     private static Integer getAuthenticatedUserId(Request request) {
-        // Extract token from request metadata or payload?
-        // Existing AuthHandler creates a session.
-        // Usually client sends token in loop or we assume connection has session.
-        // Looking at AuthHandler, it returns a token.
-        // Assuming Request object might NOT carry token explicitly in headers (simple
-        // OCSF).
-        // BUT, SessionManager maps token to userId.
-        // We need the client to send the token.
-        // Or the ConnectionToClient has info.
-
-        // Since OCSF architecture: Request is just data. ConnectionToClient holds
-        // state.
-        // But here verify logic:
-        // We will assume for now that authentication is handled or token is passed.
-        // Wait, looking at SessionManager usage in AuthHandler:
-        // "String token = sessions.createSession(user.id...)"
-
-        // In a real OCSF app, we'd identify user by Connection.
-        // For this Phase 5, let's look at how other handlers get user ID.
-        // SearchHandler doesn't need auth.
-        // MapEditHandler likely needs it.
-
-        // Let's check session usage available.
-        // If Request doesn't have token, we might need a way to pass it.
-
-        // UPDATE: For this project, we might just pass userId in payload or rely on a
-        // "SessionToken" field in generic Request if exists?
-        // Let's check Request.java.
-
-        return 1; // MOCK: Return customer ID for testing until verified
+        String token = request.getSessionToken();
+        if (token == null || token.isEmpty())
+            return null;
+        SessionManager.SessionInfo info = SessionManager.getInstance().validateSession(token);
+        return info != null ? info.userId : null;
     }
 }

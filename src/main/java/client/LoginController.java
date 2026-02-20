@@ -9,6 +9,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 import javafx.stage.Stage;
+import javafx.stage.Screen;
 
 import java.io.IOException;
 
@@ -317,9 +318,16 @@ public class LoginController implements GCMClient.MessageHandler {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/client/catalog_search.fxml"));
             Parent root = loader.load();
             Stage stage = (Stage) loginButton.getScene().getWindow();
-            stage.setScene(new Scene(root));
+            double w = Screen.getPrimary().getVisualBounds().getWidth();
+            double h = Screen.getPrimary().getVisualBounds().getHeight();
+            stage.setMinWidth(1000);
+            stage.setMinHeight(700);
+            stage.setScene(new Scene(root, w, h));
             stage.setTitle("GCM - City Catalog");
-            stage.centerOnScreen();
+            stage.setWidth(w);
+            stage.setHeight(h);
+            stage.setX(Screen.getPrimary().getVisualBounds().getMinX());
+            stage.setY(Screen.getPrimary().getVisualBounds().getMinY());
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -333,6 +341,7 @@ public class LoginController implements GCMClient.MessageHandler {
             Stage stage = (Stage) loginButton.getScene().getWindow();
             stage.setScene(new Scene(root));
             stage.setTitle("GCM - Register");
+            stage.setMaximized(true);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -343,11 +352,16 @@ public class LoginController implements GCMClient.MessageHandler {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/client/dashboard.fxml"));
             Parent root = loader.load();
             Stage stage = (Stage) loginButton.getScene().getWindow();
-            stage.setScene(new Scene(root));
+            double w = Screen.getPrimary().getVisualBounds().getWidth();
+            double h = Screen.getPrimary().getVisualBounds().getHeight();
+            stage.setMinWidth(1000);
+            stage.setMinHeight(700);
+            stage.setScene(new Scene(root, w, h));
             stage.setTitle("GCM Dashboard - " + currentUsername);
-            stage.setWidth(1000);
-            stage.setHeight(700);
-            stage.centerOnScreen();
+            stage.setWidth(w);
+            stage.setHeight(h);
+            stage.setX(Screen.getPrimary().getVisualBounds().getMinX());
+            stage.setY(Screen.getPrimary().getVisualBounds().getMinY());
         } catch (IOException e) {
             e.printStackTrace();
         }

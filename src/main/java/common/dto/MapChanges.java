@@ -43,6 +43,12 @@ public class MapChanges implements Serializable {
     private List<TourStopDTO> updatedStops;
     private List<Integer> deletedStopIds;
 
+    // Map removal (delete map)
+    private List<Integer> deletedMapIds;
+
+    /** If true, save as draft (employee only); if false, send to content manager for approval. */
+    private boolean draft;
+
     public MapChanges() {
         this.addedPois = new ArrayList<>();
         this.updatedPois = new ArrayList<>();
@@ -55,6 +61,8 @@ public class MapChanges implements Serializable {
         this.addedStops = new ArrayList<>();
         this.updatedStops = new ArrayList<>();
         this.deletedStopIds = new ArrayList<>();
+        this.deletedMapIds = new ArrayList<>();
+        this.draft = false;
     }
 
     /**
@@ -283,11 +291,28 @@ public class MapChanges implements Serializable {
     /**
      * Check if there are any changes.
      */
+    public List<Integer> getDeletedMapIds() {
+        return deletedMapIds;
+    }
+
+    public void setDeletedMapIds(List<Integer> deletedMapIds) {
+        this.deletedMapIds = deletedMapIds;
+    }
+
+    public boolean isDraft() {
+        return draft;
+    }
+
+    public void setDraft(boolean draft) {
+        this.draft = draft;
+    }
+
     public boolean hasChanges() {
         return createNewCity || newMapName != null || newMapDescription != null ||
                 !addedPois.isEmpty() || !updatedPois.isEmpty() || !deletedPoiIds.isEmpty() ||
                 !poiMapLinks.isEmpty() || !poiMapUnlinks.isEmpty() ||
                 !addedTours.isEmpty() || !updatedTours.isEmpty() || !deletedTourIds.isEmpty() ||
-                !addedStops.isEmpty() || !updatedStops.isEmpty() || !deletedStopIds.isEmpty();
+                !addedStops.isEmpty() || !updatedStops.isEmpty() || !deletedStopIds.isEmpty() ||
+                (deletedMapIds != null && !deletedMapIds.isEmpty());
     }
 }
