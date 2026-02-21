@@ -1,50 +1,174 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0"/>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0" />
     <title>Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        html, body, #map {
+        html,
+        body,
+        #map {
             height: 100%;
             margin: 0;
             padding: 0;
+            background: #e8e0d8;
         }
-        #demo-label { position: absolute; top: 8px; left: 8px; z-index: 1000; padding: 6px 10px; background: rgba(0,0,0,0.75); color: #fff; font-size: 12px; border-radius: 4px; pointer-events: none; }
+
+        #demo-label {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            z-index: 1000;
+            padding: 6px 10px;
+            background: rgba(0, 0, 0, 0.75);
+            color: #fff;
+            font-size: 12px;
+            border-radius: 4px;
+            pointer-events: none;
+        }
+
+        /*
+         * JavaFX WebKit fix: Leaflet's fadeAnimation uses CSS opacity transitions
+         * which JavaFX WebKit often doesn't complete, leaving tiles stuck at
+         * opacity 0 permanently. Force all loaded tiles fully opaque and kill
+         * all CSS transitions on tile elements.
+         */
+        .leaflet-tile {
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            -webkit-transition: none !important;
+            transition: none !important;
+        }
+
+        .leaflet-tile-loaded {
+            opacity: 1 !important;
+        }
+
+        .leaflet-zoom-animated {
+            -webkit-transition: none !important;
+            transition: none !important;
+        }
     </style>
 </head>
+
 <body>
-    <div id="demo-label">Demo: Cairo (OSM)</div>
+    <div id="demo-label">OSM Map</div>
     <div id="map"></div>
     <script>
         var map = null;
+        var _tileLayer = null;
+        var _watchdogInterval = null;   // checks for missing tiles every 2s
+        var _sizeInterval = null;    // calls invalidateSize every 2s
+        var _lastCenter = null;    // tracks last known center for stuck-tile forced re-center
 
+        // ─── Main init ────────────────────────────────────────────────────────────
         function initMap() {
-            if (map) {
-                map.remove();
-                map = null;
+            // Tear down any previous map instance and timers
+            _clearTimers();
+            if (map) { map.remove(); map = null; }
+
+            // GUARD: if the container has no physical size yet (hidden tab),
+            // defer init until JavaFX has laid out the WebView.
+            var container = document.getElementById('map');
+            if (!container || container.offsetWidth === 0 || container.offsetHeight === 0) {
+                setTimeout(initMap, 300);
+                return;
             }
 
             map = L.map('map', {
+                // Animations MUST stay disabled in JavaFX WebKit.
+                // Leaflet uses CSS opacity/transform transitions which JavaFX's
+                // WebKit engine often doesn't complete, leaving tiles permanently
+                // invisible and misaligned.
                 zoomAnimation: false,
                 fadeAnimation: false,
-                markerZoomAnimation: false
+                markerZoomAnimation: false,
+                preferCanvas: false
             }).setView([30.0444, 31.2357], 13);
 
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            _tileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
-                attribution: '&copy; OpenStreetMap',
-                updateWhenZooming: false
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                crossOrigin: 'anonymous',
+                updateWhenZooming: false,
+                updateWhenIdle: true,   // only load after panning stops (more stable)
+                keepBuffer: 4
             }).addTo(map);
 
-            setTimeout(function () {
+            // Save center whenever the user moves the map
+            map.on('moveend', function () {
+                _lastCenter = map.getCenter();
+            });
+            _lastCenter = map.getCenter();
+
+            // ── Tile error retry (up to 3x, exponential back-off) ─────────────
+            _tileLayer.on('tileerror', function (e) {
+                var tile = e.tile;
+                var retries = parseInt(tile.dataset.retries || '0', 10);
+                if (retries < 3) {
+                    tile.dataset.retries = retries + 1;
+                    var delay = 1500 * Math.pow(2, retries); // 1.5s → 3s → 6s
+                    setTimeout(function () {
+                        // Strip old cache-buster, add fresh one
+                        var src = tile.src.split('?')[0];
+                        tile.src = '';
+                        tile.src = src + '?_r=' + Date.now();
+                    }, delay);
+                }
+            });
+
+            // ── Continuous invalidateSize every 2 s ───────────────────────────
+            // Fixes "need to pan to refresh": even when the user is idle,
+            // Leaflet will re-evaluate the visible viewport.
+            _sizeInterval = setInterval(function () {
+                if (!map) return;
+                var prevSize = map.getSize();
                 map.invalidateSize(true);
-            }, 300);
+                var newSize = map.getSize();
+                // If the size actually changed, also request new tiles
+                if (newSize.x !== prevSize.x || newSize.y !== prevSize.y) {
+                    _tileLayer && _tileLayer.redraw();
+                }
+            }, 2000);
+
+            // ── Watchdog: detect visually-blank tiles every 2 s ───────────────
+            var _missCycles = 0;  // consecutive cycles with missing tiles
+            _watchdogInterval = setInterval(function () {
+                if (!map) return;
+                var c = map.getContainer();
+                if (!c) return;
+
+                var tiles = c.querySelectorAll('.leaflet-tile');
+                var missing = 0, total = 0;
+                for (var i = 0; i < tiles.length; i++) {
+                    if (tiles[i].tagName !== 'IMG') continue;
+                    total++;
+                    if (tiles[i].complete && tiles[i].naturalWidth === 0) missing++;
+                }
+
+                if (total > 0 && missing > 0) {
+                    _missCycles++;
+                    if (_missCycles >= 2) {
+                        // Stuck for ≥ 4 s → force full redraw + re-center
+                        _missCycles = 0;
+                        _forceRefresh();
+                    }
+                } else {
+                    _missCycles = 0;
+                }
+            }, 2000);
+
+            // Initial ramp-up invalidations
+            setTimeout(function () { map && map.invalidateSize(true); }, 200);
+            setTimeout(function () { map && map.invalidateSize(true); }, 600);
+            setTimeout(function () { map && map.invalidateSize(true); }, 1200);
+            setTimeout(function () { map && _tileLayer && _tileLayer.redraw(); }, 1500);
 
             window._markers = [];
-            map.on('click', function(e) {
+            map.on('click', function (e) {
                 L.marker(e.latlng).addTo(map).bindPopup('New POI');
                 if (window.javafx && typeof window.javafx.poiAdded === 'function') {
                     window.javafx.poiAdded(e.latlng.lat, e.latlng.lng);
@@ -59,21 +183,50 @@
             }
         }
 
-        window.mapInvalidateSize = function() {
+        // Full refresh: re-center to last known position + redraw all tiles
+        function _forceRefresh() {
+            if (!map || !_tileLayer) return;
+            if (_lastCenter) {
+                map.setView(_lastCenter, map.getZoom(), { animate: false });
+            }
+            _tileLayer.redraw();
+            setTimeout(function () { map && map.invalidateSize(true); }, 150);
+        }
+
+        function _clearTimers() {
+            if (_watchdogInterval) { clearInterval(_watchdogInterval); _watchdogInterval = null; }
+            if (_sizeInterval) { clearInterval(_sizeInterval); _sizeInterval = null; }
+        }
+
+        // ─── Public API (called from Java / retry button) ─────────────────────────
+        window.reloadTiles = function () {
+            if (!map || !_tileLayer) return;
+            _tileLayer.redraw();
+            setTimeout(function () { map && map.invalidateSize(true); }, 150);
+        };
+
+        window.mapInvalidateSize = function () {
             if (map) map.invalidateSize(true);
         };
 
-        window.setCenter = function(lat, lng, zoom) {
-            if (map) map.setView([lat, lng], zoom || 13);
+        window.setCenter = function (lat, lng, zoom) {
+            if (!map) return;
+            map.setView([lat, lng], zoom || 13);
+            _lastCenter = map.getCenter();
+            // After re-centering, give tiles a moment then force a redraw
+            setTimeout(function () {
+                map && map.invalidateSize(true);
+                _tileLayer && _tileLayer.redraw();
+            }, 300);
         };
 
-        window.clearMarkers = function() {
+        window.clearMarkers = function () {
             if (!map) return;
-            (window._markers || []).forEach(function(m) { map.removeLayer(m); });
+            (window._markers || []).forEach(function (m) { map.removeLayer(m); });
             window._markers = [];
         };
 
-        window.addMarker = function(id, lat, lng, name) {
+        window.addMarker = function (id, lat, lng, name) {
             if (!map) return;
             var m = L.marker([lat, lng]).addTo(map);
             if (name) m.bindPopup('<b>' + (name || 'POI') + '</b>');
@@ -82,4 +235,5 @@
         };
     </script>
 </body>
+
 </html>

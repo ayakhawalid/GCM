@@ -53,11 +53,9 @@
         <VBox style="-fx-padding: 15;">
             <TabPane fx:id="contentTabs" VBox.vgrow="ALWAYS" style="-fx-background-color: #1a1a2e;">
                 
-                <!-- Map Tab: WebView + Leaflet (map.html) – shows OSM map and click-to-add POI -->
+                <!-- Map Tab: Gluon MapView (added programmatically in MapEditorScreen) -->
                 <Tab text="🗺️ Map" closable="false">
-                    <AnchorPane fx:id="mapTabAnchorPane" minWidth="400" minHeight="300">
-                        <WebView fx:id="mapWebView" AnchorPane.bottomAnchor="0" AnchorPane.leftAnchor="0" AnchorPane.rightAnchor="0" AnchorPane.topAnchor="0"/>
-                    </AnchorPane>
+                    <AnchorPane fx:id="mapTabAnchorPane" minWidth="400" minHeight="300"/>
                 </Tab>
                 
                 <!-- POIs Tab -->

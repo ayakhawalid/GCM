@@ -1,26 +1,34 @@
 package client.boundary;
 
 import client.control.ContentManagementControl;
+import com.gluonhq.maps.MapLayer;
+import com.gluonhq.maps.MapPoint;
+import com.gluonhq.maps.MapView;
 import common.Poi;
 import common.dto.*;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Point2D;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.web.WebEngine;
-import javafx.scene.web.WebView;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
+import javafx.scene.shape.SVGPath;
 import javafx.stage.Stage;
-import client.util.MapClickBridge;
-import netscape.javascript.JSObject;
+import javafx.util.Pair;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -98,13 +106,11 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
     @FXML
     private TextArea tourDescArea;
 
-    // Map Tab (WebView + Leaflet map.html)
+    // Map Tab – Gluon Maps (native JavaFX, no WebView)
     @FXML
     private AnchorPane mapTabAnchorPane;
-    @FXML
-    private WebView mapWebView;
-    private MapClickBridge mapClickBridge;
-    private boolean mapLoaded = false;
+    private MapView mapView;
+    private PoiMarkerLayer poiMarkerLayer;
 
     // Map Info Tab
     @FXML
@@ -227,124 +233,125 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
         // Custom cell factories
         setupCellFactories();
 
-        // Map tab: WebView + Leaflet (map.html) – loads OSM map, click to add POI
-        mapClickBridge = new MapClickBridge();
-        mapClickBridge.setOnMapClickConsumer(this::addPoiAtLocation);
-        mapClickBridge.setOnMapReadyConsumer(() -> {
-            mapLoaded = true;
-            refreshMapMarkers();
-        });
-        if (contentTabs != null && mapWebView != null) {
-            if (mapTabAnchorPane != null) {
-                mapTabAnchorPane.prefWidthProperty().bind(contentTabs.widthProperty());
-                mapTabAnchorPane.prefHeightProperty().bind(contentTabs.heightProperty());
-            }
-            mapWebView.setPrefSize(800, 600);
-            mapWebView.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
-            AnchorPane.setTopAnchor(mapWebView, 0.0);
-            AnchorPane.setBottomAnchor(mapWebView, 0.0);
-            AnchorPane.setLeftAnchor(mapWebView, 0.0);
-            AnchorPane.setRightAnchor(mapWebView, 0.0);
-            WebEngine engine = mapWebView.getEngine();
-            engine.getLoadWorker().stateProperty().addListener((obs, old, state) -> {
-                if (state == javafx.concurrent.Worker.State.SUCCEEDED) {
-                    try {
-                        JSObject window = (JSObject) engine.executeScript("window");
-                        window.setMember("app", mapClickBridge);
-                        window.setMember("javafx", mapClickBridge);
-                        Platform.runLater(() -> {
-                            javafx.animation.PauseTransition pause = new javafx.animation.PauseTransition(javafx.util.Duration.millis(400));
-                            pause.setOnFinished(e -> engine.executeScript("initMap();"));
-                            pause.play();
-                        });
-                    } catch (Exception e) {
-                        System.err.println("MapEditorScreen: set bridge failed: " + e.getMessage());
+        // ── Gluon Maps setup ─────────────────────────────────────────────────
+        if (mapTabAnchorPane != null) {
+            // Fix for slow tile loading (30s+ delays):
+            // 1. OSM heavily limits default Java HTTP clients; we must provide a real User-Agent.
+            System.setProperty("http.agent", "GCM-System/1.0 (your_email@example.com)");
+            // 2. Windows sometimes stalls for ~30s trying IPv6 resolving before falling back to IPv4.
+            System.setProperty("java.net.preferIPv4Stack", "true");
+
+            mapView = new MapView();
+            mapView.setZoom(13);
+            mapView.flyTo(0, new MapPoint(32.8, 34.99), 0.1); // default: Haifa
+
+            poiMarkerLayer = new PoiMarkerLayer();
+            mapView.addLayer(poiMarkerLayer);
+
+            // Click-to-add-POI: distinguish a real click from a pan/scroll gesture.
+            // MOUSE_CLICKED fires even after drag/scroll in Gluon Maps, so we track
+            // the press position and only act if the mouse barely moved (< 6 px).
+            final double[] pressXY = {0, 0};
+            mapView.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> {
+                pressXY[0] = e.getX();
+                pressXY[1] = e.getY();
+            });
+            mapView.addEventHandler(MouseEvent.MOUSE_RELEASED, e -> {
+                double dx = Math.abs(e.getX() - pressXY[0]);
+                double dy = Math.abs(e.getY() - pressXY[1]);
+                if (dx < 6 && dy < 6) { // genuine click – not a drag or scroll
+                    MapPoint clicked = mapView.getMapPosition(e.getX(), e.getY());
+                    if (clicked != null) {
+                        addPoiAtLocation(clicked.getLatitude(), clicked.getLongitude());
                     }
                 }
             });
-            java.net.URL mapUrl = getClass().getResource("/client/map.html");
-            if (mapUrl != null) {
-                engine.load(mapUrl.toExternalForm());
-            }
-            contentTabs.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> {
-                if (newTab != null && newTab.getText() != null && newTab.getText().contains("Map")) {
-                    if (!mapLoaded && mapWebView.getEngine().getDocument() != null) {
-                        mapLoaded = true;
-                        refreshMapMarkers();
-                    } else {
-                        refreshMapMarkers();
-                    }
-                    invalidateMapSizeDelayed();
-                    Platform.runLater(() -> runMapInvalidateSize(mapWebView.getEngine()));
-                    new javafx.animation.Timeline(
-                        new javafx.animation.KeyFrame(javafx.util.Duration.millis(300), e -> runMapInvalidateSize(mapWebView.getEngine()))
-                    ).play();
-                }
-            });
-            mapWebView.layoutBoundsProperty().addListener((obs, oldBounds, newBounds) -> invalidateMapSizeDelayed());
+
+            AnchorPane.setTopAnchor(mapView, 0.0);
+            AnchorPane.setBottomAnchor(mapView, 0.0);
+            AnchorPane.setLeftAnchor(mapView, 0.0);
+            AnchorPane.setRightAnchor(mapView, 0.0);
+            mapTabAnchorPane.getChildren().add(mapView);
         }
 
         setStatus("Ready - Select a city to begin");
     }
 
-    private javafx.animation.KeyFrame invalidateMapSizeKeyFrame;
-    private javafx.animation.Timeline invalidateMapSizeTimeline;
+    /** Inner class: a Gluon MapLayer that shows POI pin markers. */
+    private static class PoiMarkerLayer extends MapLayer {
+        private final List<Pair<MapPoint, Node>> entries = new ArrayList<>();
 
-    private void invalidateMapSizeDelayed() {
-        if (mapWebView == null || !mapLoaded) return;
-        if (invalidateMapSizeTimeline != null) invalidateMapSizeTimeline.stop();
-        invalidateMapSizeKeyFrame = new javafx.animation.KeyFrame(javafx.util.Duration.millis(120), e -> runMapInvalidateSize(mapWebView.getEngine()));
-        invalidateMapSizeTimeline = new javafx.animation.Timeline(invalidateMapSizeKeyFrame);
-        invalidateMapSizeTimeline.play();
+        void addPoi(int id, double lat, double lng, String name) {
+            // Red pin: filled circle with a smaller white dot
+            Circle outer = new Circle(10, Color.web("#e74c3c"));
+            Circle inner = new Circle(4, Color.WHITE);
+            StackPane pin = new StackPane(outer, inner);
+            pin.setUserData(id);
+
+            Tooltip tip = new Tooltip(name != null && !name.isEmpty() ? name : "POI");
+            Tooltip.install(pin, tip);
+
+            MapPoint point = new MapPoint(lat, lng);
+            entries.add(new Pair<>(point, pin));
+            getChildren().add(pin);
+            this.markDirty();
+        }
+
+        void clearPois() {
+            entries.clear();
+            getChildren().clear();
+            this.markDirty();
+        }
+
+        @Override
+        protected void layoutLayer() {
+            for (Pair<MapPoint, Node> entry : entries) {
+                MapPoint mp = entry.getKey();
+                Node node = entry.getValue();
+                Point2D screen = baseMap.getMapPoint(mp.getLatitude(), mp.getLongitude());
+                node.setVisible(true);
+                node.setTranslateX(screen.getX());
+                node.setTranslateY(screen.getY());
+            }
+        }
     }
 
-    /** Tell Leaflet to recalculate size so tiles don't shift (WebView + Leaflet fix). */
-    private void runMapInvalidateSize(WebEngine engine) {
-        if (engine == null) return;
-        try {
-            engine.executeScript("if (typeof mapInvalidateSize === 'function') mapInvalidateSize();");
-        } catch (Exception ignored) {}
-    }
-
-    /** Cairo coords for demo view when no city/map selected (OSM only, to test if map works without app data). */
     private static final double DEMO_CAIRO_LAT = 30.0444;
     private static final double DEMO_CAIRO_LNG = 31.2357;
 
+    /** Recentres Gluon MapView and redraws all POI markers. */
     private void refreshMapMarkers() {
-        if (mapWebView == null || !mapLoaded) return;
-        WebEngine engine = mapWebView.getEngine();
-        try {
-            double centerLat = DEMO_CAIRO_LAT;
-            double centerLng = DEMO_CAIRO_LNG;
-            List<Poi> pois = null;
-            if (currentMapContent != null) {
-                pois = currentMapContent.getPois();
-                if (pois != null && !pois.isEmpty()) {
-                    Poi first = pois.get(0);
-                    if (first.getLatitude() != null && first.getLongitude() != null) {
-                        centerLat = first.getLatitude();
-                        centerLng = first.getLongitude();
-                    }
+        if (mapView == null || poiMarkerLayer == null) return;
+        double centerLat = DEMO_CAIRO_LAT;
+        double centerLng = DEMO_CAIRO_LNG;
+        List<Poi> pois = null;
+
+        if (currentMapContent != null) {
+            pois = currentMapContent.getPois();
+            if (pois != null && !pois.isEmpty()) {
+                Poi first = pois.get(0);
+                if (first.getLatitude() != null && first.getLongitude() != null) {
+                    centerLat = first.getLatitude();
+                    centerLng = first.getLongitude();
                 }
             }
-            if ((pois == null || pois.isEmpty()) && selectedCity != null) {
-                double[] def = defaultCenterForCity(selectedCity);
-                centerLat = def[0];
-                centerLng = def[1];
+        }
+        if ((pois == null || pois.isEmpty()) && selectedCity != null) {
+            double[] def = defaultCenterForCity(selectedCity);
+            centerLat = def[0];
+            centerLng = def[1];
+        }
+
+        mapView.flyTo(0, new MapPoint(centerLat, centerLng), 0.1);
+        poiMarkerLayer.clearPois();
+
+        if (pois != null) {
+            for (Poi p : pois) {
+                double lat = p.getLatitude() != null ? p.getLatitude() : parseLatLon(p.getLocation(), true);
+                double lng = p.getLongitude() != null ? p.getLongitude() : parseLatLon(p.getLocation(), false);
+                if (Double.isNaN(lat) || Double.isNaN(lng)) continue;
+                poiMarkerLayer.addPoi(p.getId(), lat, lng, p.getName());
             }
-            engine.executeScript("if (typeof setCenter === 'function') setCenter(" + centerLat + ", " + centerLng + ", 13);");
-            engine.executeScript("if (typeof clearMarkers === 'function') clearMarkers();");
-            if (pois != null) {
-                for (Poi p : pois) {
-                    double lat = p.getLatitude() != null ? p.getLatitude() : parseLatLon(p.getLocation(), true);
-                    double lng = p.getLongitude() != null ? p.getLongitude() : parseLatLon(p.getLocation(), false);
-                    if (Double.isNaN(lat) || Double.isNaN(lng)) continue;
-                    String name = (p.getName() != null ? p.getName() : "").replace("'", "\\'").replace("\n", " ");
-                    engine.executeScript("if (typeof addMarker === 'function') addMarker(" + p.getId() + ", " + lat + ", " + lng + ", '" + name + "');");
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("MapEditorScreen: refreshMapMarkers failed: " + e.getMessage());
         }
     }
 

@@ -67,11 +67,11 @@
             <version>${javafx.version}</version>
         </dependency>
 
-        <!-- JXMapViewer2: pure Java OSM tiles, no browser -->
+        <!-- Gluon Maps: native JavaFX OSM tile rendering (replaces WebView+Leaflet) -->
         <dependency>
-            <groupId>org.jxmapviewer</groupId>
-            <artifactId>jxmapviewer2</artifactId>
-            <version>2.8</version>
+            <groupId>com.gluonhq</groupId>
+            <artifactId>maps</artifactId>
+            <version>2.0.0-ea+6</version>
         </dependency>
 
         <!-- JavaFX Graphics for different platforms -->
@@ -102,9 +102,6 @@
                 <version>0.0.8</version>
                 <configuration>
                     <mainClass>client.LoginApp</mainClass>
-                    <options>
-                        <option>-Dprism.order=sw</option>
-                    </options>
                 </configuration>
             </plugin>
 
