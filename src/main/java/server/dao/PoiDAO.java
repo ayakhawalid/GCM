@@ -13,6 +13,26 @@ import java.util.List;
 public class PoiDAO {
 
     /**
+     * Get POIs linked to a map that are still draft (unapproved).
+     * Used when building an approval request so the manager sees POIs the employee saved as draft.
+     * Returns empty list if the approved column doesn't exist or on error.
+     */
+    public static List<Poi> getDraftPoisForMap(Connection conn, int mapId) throws SQLException {
+        List<Poi> pois = new ArrayList<>();
+        String query = "SELECT p.* FROM pois p " +
+                "JOIN map_pois mp ON mp.poi_id = p.id AND mp.map_id = ? " +
+                "WHERE mp.approved = 0 " +
+                "ORDER BY mp.display_order";
+        PreparedStatement stmt = conn.prepareStatement(query);
+        stmt.setInt(1, mapId);
+        ResultSet rs = stmt.executeQuery();
+        while (rs.next()) {
+            pois.add(extractPoi(rs));
+        }
+        return pois;
+    }
+
+    /**
      * Get all POIs linked to a map.
      */
     public static List<Poi> getPoisForMap(int mapId) {
@@ -206,21 +226,39 @@ public class PoiDAO {
     }
 
     /**
-     * Link a POI to a map.
+     * Link a POI to a map (approved = true for catalog visibility).
      */
     public static boolean linkPoiToMap(Connection conn, int mapId, int poiId, int displayOrder) throws SQLException {
-        String query = "INSERT INTO map_pois (map_id, poi_id, display_order) VALUES (?, ?, ?) " +
-                "ON DUPLICATE KEY UPDATE display_order = ?";
+        return linkPoiToMap(conn, mapId, poiId, displayOrder, true);
+    }
 
-        PreparedStatement stmt = conn.prepareStatement(query);
-        stmt.setInt(1, mapId);
-        stmt.setInt(2, poiId);
-        stmt.setInt(3, displayOrder);
-        stmt.setInt(4, displayOrder);
-
-        int affected = stmt.executeUpdate();
-        System.out.println("PoiDAO: Linked POI " + poiId + " to map " + mapId);
-        return affected > 0;
+    /**
+     * Link a POI to a map. When approved is false (draft), the POI is not counted/shown in catalog until approved.
+     */
+    public static boolean linkPoiToMap(Connection conn, int mapId, int poiId, int displayOrder, boolean approved) throws SQLException {
+        try {
+            String query = "INSERT INTO map_pois (map_id, poi_id, display_order, approved) VALUES (?, ?, ?, ?) " +
+                    "ON DUPLICATE KEY UPDATE display_order = VALUES(display_order), approved = VALUES(approved)";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setInt(1, mapId);
+            stmt.setInt(2, poiId);
+            stmt.setInt(3, displayOrder);
+            stmt.setInt(4, approved ? 1 : 0);
+            int affected = stmt.executeUpdate();
+            System.out.println("PoiDAO: Linked POI " + poiId + " to map " + mapId + " (approved=" + approved + ")");
+            return affected > 0;
+        } catch (SQLException e) {
+            if (e.getMessage() != null && e.getMessage().contains("approved")) {
+                PreparedStatement stmt = conn.prepareStatement(
+                        "INSERT INTO map_pois (map_id, poi_id, display_order) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE display_order = ?");
+                stmt.setInt(1, mapId);
+                stmt.setInt(2, poiId);
+                stmt.setInt(3, displayOrder);
+                stmt.setInt(4, displayOrder);
+                return stmt.executeUpdate() > 0;
+            }
+            throw e;
+        }
     }
 
     /**

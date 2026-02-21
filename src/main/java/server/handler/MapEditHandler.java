@@ -101,8 +101,9 @@ public class MapEditHandler {
     // ==================== GET Operations ====================
 
     private static Response handleGetCities(Request request) {
-        System.out.println("MapEditHandler: Getting all cities");
-        List<CityDTO> cities = CityDAO.getAllCities();
+        int userId = resolveUserId(request);
+        System.out.println("MapEditHandler: Getting all cities for user " + userId);
+        List<CityDTO> cities = CityDAO.getAllCities(userId);
         return Response.success(request, cities);
     }
 
@@ -112,9 +113,10 @@ public class MapEditHandler {
         }
 
         int cityId = (Integer) request.getPayload();
-        System.out.println("MapEditHandler: Getting maps for city " + cityId);
+        int userId = resolveUserId(request);
+        System.out.println("MapEditHandler: Getting maps for city " + cityId + " for user " + userId);
 
-        List<MapSummary> maps = MapDAO.getMapsForCity(cityId);
+        List<MapSummary> maps = MapDAO.getMapsForCity(cityId, userId);
         return Response.success(request, maps);
     }
 
@@ -467,6 +469,8 @@ public class MapEditHandler {
                 ? (session != null ? session.userId : request.getUserId()) : 1;
         boolean isContentManager = session != null && isManagerRole(session.role);
 
+        boolean asDraft = changes.isDraft();
+
         if (isContentManager) {
             // Content Manager: apply changes and release directly (no approval step)
             try (Connection conn = DBConnector.getConnection()) {
@@ -476,7 +480,7 @@ public class MapEditHandler {
                 conn.setAutoCommit(false);
                 validation = new ValidationResult();
                 try {
-                    applyMapChanges(conn, changes, userId, userId, 0, validation);
+                    applyMapChanges(conn, changes, userId, userId, 0, validation, false);
                     conn.commit();
                     validation.setSuccessMessage("Changes applied and released. Customers can see the new version.");
                     Integer cityId = changes.getCityId();
@@ -493,22 +497,42 @@ public class MapEditHandler {
             }
         }
 
-        // Content Editor (or unauthenticated): submit for manager approval
+        // Content Editor: draft = apply to DB with DRAFT version (persisted, visible on reload); otherwise submit request for approval
+        if (asDraft) {
+            try (Connection conn = DBConnector.getConnection()) {
+                if (conn == null) {
+                    return Response.error(request, Response.ERR_DATABASE, "Database connection failed");
+                }
+                conn.setAutoCommit(false);
+                validation = new ValidationResult();
+                try {
+                    applyMapChanges(conn, changes, userId, userId, 0, validation, true);
+                    conn.commit();
+                    validation.setSuccessMessage("Changes saved. They are stored as draft and visible only to you until sent for approval.");
+                    return Response.success(request, validation);
+                } catch (SQLException e) {
+                    conn.rollback();
+                    return Response.error(request, Response.ERR_DATABASE, "Transaction failed: " + e.getMessage());
+                }
+            } catch (SQLException e) {
+                return Response.error(request, Response.ERR_DATABASE, e.getMessage());
+            }
+        }
+
+        // Submit for manager approval (not draft): include any draft (unverified) POIs on this map so manager sees them
         try (Connection conn = DBConnector.getConnection()) {
+            enrichMapChangesWithDraftPois(conn, changes);
+
             int reqId = MapEditRequestDAO.createRequest(conn,
                     changes.getMapId() != null ? changes.getMapId() : 0,
                     changes.getCityId() != null ? changes.getCityId() : 0,
                     userId,
                     changes);
 
-            boolean asDraft = changes.isDraft();
-            System.out.println("MapEditHandler: Created request with ID=" + reqId + " (status=" + (asDraft ? "DRAFT" : "PENDING") + ")");
+            System.out.println("MapEditHandler: Created request with ID=" + reqId + " (status=PENDING)");
 
             if (reqId > 0) {
-                String msg = asDraft
-                        ? "Changes saved as draft. You can send to content manager later."
-                        : "Changes submitted for manager approval. Request ID: " + reqId;
-                validation = ValidationResult.success(msg);
+                validation = ValidationResult.success("Changes submitted for manager approval. Request ID: " + reqId);
                 return Response.success(request, validation);
             }
         } catch (SQLException e) {
@@ -516,6 +540,45 @@ public class MapEditHandler {
             return Response.error(request, Response.ERR_DATABASE, "Database error: " + e.getMessage());
         }
         return Response.error(request, Response.ERR_DATABASE, "Failed to submit request");
+    }
+
+    private static int resolveUserId(Request request) {
+        String token = request.getSessionToken();
+        SessionManager.SessionInfo session = token != null ? SessionManager.getInstance().validateSession(token) : null;
+        int uid = session != null ? session.userId : request.getUserId();
+        return uid > 0 ? uid : 0;
+    }
+
+    /**
+     * When submitting for manager approval, add any draft (unverified) POIs currently on this map
+     * so the manager sees what the employee had saved earlier with "Save changes".
+     */
+    private static void enrichMapChangesWithDraftPois(Connection conn, MapChanges changes) {
+        Integer mapId = changes.getMapId();
+        if (mapId == null || mapId <= 0) return;
+        try {
+            List<Poi> draftPois = PoiDAO.getDraftPoisForMap(conn, mapId);
+            if (draftPois.isEmpty()) return;
+            java.util.Set<Integer> alreadyInRequest = new java.util.HashSet<>();
+            for (Poi p : changes.getAddedPois()) alreadyInRequest.add(p.getId());
+            for (Poi p : changes.getUpdatedPois()) alreadyInRequest.add(p.getId());
+            int added = 0;
+            for (Poi p : draftPois) {
+                if (p.getId() > 0 && !alreadyInRequest.contains(p.getId())) {
+                    changes.getAddedPois().add(p);
+                    alreadyInRequest.add(p.getId());
+                    added++;
+                }
+            }
+            if (added > 0) {
+                System.out.println("MapEditHandler: Enriched request with " + added + " draft POI(s) for map " + mapId);
+            }
+        } catch (SQLException e) {
+            // approved column may not exist yet
+            if (e.getMessage() != null && !e.getMessage().contains("approved")) {
+                System.err.println("MapEditHandler: Failed to load draft POIs for map " + mapId + ": " + e.getMessage());
+            }
+        }
     }
 
     private static boolean isManagerRole(String role) {
@@ -585,15 +648,39 @@ public class MapEditHandler {
      */
     private static void applyMapChanges(Connection conn, MapChanges changes, int creatorUserId, int approverUserId,
             int mapEditRequestId, ValidationResult validation) throws SQLException {
+        applyMapChanges(conn, changes, creatorUserId, approverUserId, mapEditRequestId, validation, false);
+    }
+
+    private static void applyMapChanges(Connection conn, MapChanges changes, int creatorUserId, int approverUserId,
+            int mapEditRequestId, ValidationResult validation, boolean asDraft) throws SQLException {
         // approved_by must reference a valid user (FK)
         if (approverUserId <= 0) approverUserId = creatorUserId;
 
-        // Create new city if requested
+        // Create new city if requested (approved = visible to all only when !asDraft)
         if (changes.isCreateNewCity()) {
-            int cityId = CityDAO.createCity(conn,
-                    changes.getNewCityName(),
-                    changes.getNewCityDescription(),
-                    changes.getNewCityPrice());
+            int cityId;
+            if (!asDraft) {
+                // Manager approval: approve existing draft city if one exists, so catalog shows it
+                Integer existingId = CityDAO.findUnapprovedCityByName(conn, changes.getNewCityName());
+                if (existingId != null) {
+                    CityDAO.setCityApproved(conn, existingId);
+                    cityId = existingId;
+                } else {
+                    cityId = CityDAO.createCity(conn,
+                            changes.getNewCityName(),
+                            changes.getNewCityDescription(),
+                            changes.getNewCityPrice() != null ? changes.getNewCityPrice() : 0,
+                            creatorUserId,
+                            true);
+                }
+            } else {
+                cityId = CityDAO.createCity(conn,
+                        changes.getNewCityName(),
+                        changes.getNewCityDescription(),
+                        changes.getNewCityPrice() != null ? changes.getNewCityPrice() : 0,
+                        creatorUserId,
+                        false);
+            }
             validation.setCreatedCityId(cityId);
             changes.setCityId(cityId);
         }
@@ -602,10 +689,29 @@ public class MapEditHandler {
         // If mapId is already set, we're editing an existing map — update it, do not create a duplicate
         boolean hasExistingMap = changes.getMapId() != null && changes.getMapId() > 0;
         if (!hasExistingMap && changes.getNewMapName() != null && !changes.getNewMapName().isEmpty() && changes.getCityId() != null) {
-            int mapId = MapDAO.createMap(conn,
-                    changes.getCityId(),
-                    changes.getNewMapName(),
-                    changes.getNewMapDescription() != null ? changes.getNewMapDescription() : "");
+            int mapId;
+            if (!asDraft) {
+                // Manager approval: approve existing draft map if one exists
+                Integer existingMapId = MapDAO.findUnapprovedMapByCityAndName(conn, changes.getCityId(), changes.getNewMapName());
+                if (existingMapId != null) {
+                    MapDAO.setMapApproved(conn, existingMapId);
+                    mapId = existingMapId;
+                } else {
+                    mapId = MapDAO.createMap(conn,
+                            changes.getCityId(),
+                            changes.getNewMapName(),
+                            changes.getNewMapDescription() != null ? changes.getNewMapDescription() : "",
+                            creatorUserId,
+                            true);
+                }
+            } else {
+                mapId = MapDAO.createMap(conn,
+                        changes.getCityId(),
+                        changes.getNewMapName(),
+                        changes.getNewMapDescription() != null ? changes.getNewMapDescription() : "",
+                        creatorUserId,
+                        false);
+            }
             validation.setCreatedMapId(mapId);
             changes.setMapId(mapId);
         } else if (hasExistingMap && (changes.getNewMapName() != null || changes.getNewMapDescription() != null)) {
@@ -621,11 +727,12 @@ public class MapEditHandler {
             if (poiId > 0) validation.getCreatedPoiIds().add(poiId);
         }
 
-        // Link newly created POIs to the current map (so they appear on this map)
+        // Link newly created POIs to the current map (approved = false when draft, so catalog doesn't count them yet)
+        boolean linkApproved = !asDraft;
         if (changes.getMapId() != null && changes.getMapId() > 0 && !validation.getCreatedPoiIds().isEmpty()) {
             int order = 0;
             for (int poiId : validation.getCreatedPoiIds()) {
-                if (poiId > 0) PoiDAO.linkPoiToMap(conn, changes.getMapId(), poiId, order++);
+                if (poiId > 0) PoiDAO.linkPoiToMap(conn, changes.getMapId(), poiId, order++, linkApproved);
             }
         }
 
@@ -644,7 +751,7 @@ public class MapEditHandler {
                 poiId = createdPoiIds.get(nextCreatedPoiIndex++);
             }
             if (poiId <= 0) continue;
-            PoiDAO.linkPoiToMap(conn, link.mapId, poiId, link.displayOrder);
+            PoiDAO.linkPoiToMap(conn, link.mapId, poiId, link.displayOrder, linkApproved);
         }
         nextCreatedPoiIndex = 0;
         for (MapChanges.PoiMapLink link : changes.getPoiMapUnlinks()) {
@@ -719,22 +826,46 @@ public class MapEditHandler {
             TourDAO.removeTourStop(conn, stopId);
         }
 
+        // Recompute total_distance_meters for all tours in this city (POI-to-POI consecutive distances)
+        Integer cityIdForTours = changes.getCityId();
+        if (cityIdForTours != null && cityIdForTours > 0) {
+            java.util.Set<Integer> tourIds = new java.util.HashSet<>();
+            for (int tid : validation.getCreatedTourIds()) tourIds.add(tid);
+            for (TourDTO t : changes.getUpdatedTours()) tourIds.add(t.getId());
+            for (TourStopDTO s : changes.getAddedStops()) if (s.getTourId() > 0) tourIds.add(s.getTourId());
+            for (TourStopDTO s : changes.getUpdatedStops()) tourIds.add(s.getTourId());
+            for (int stopId : changes.getDeletedStopIds()) {
+                Integer tid = TourDAO.getTourIdForStop(conn, stopId);
+                if (tid != null) tourIds.add(tid);
+            }
+            for (int tourId : tourIds) {
+                try {
+                    TourDAO.recomputeAndUpdateTourDistance(conn, tourId);
+                } catch (SQLException e) {
+                    System.err.println("MapEditHandler: Failed to recompute tour distance for tour " + tourId + ": " + e.getMessage());
+                }
+            }
+        }
+
         // Delete POIs only after all tour_stops no longer reference them (FK poi_id -> pois(id))
         for (int poiId : changes.getDeletedPoiIds()) {
             PoiDAO.deletePoi(conn, poiId);
         }
 
-        // Create map version and set APPROVED (customers can see and purchase) — skip if this map is being deleted
+        // Create map version — DRAFT (editor only) or APPROVED (customers can see)
         boolean mapBeingDeleted = changes.getDeletedMapIds() != null && changes.getDeletedMapIds().contains(changes.getMapId());
         if (changes.getMapId() != null && changes.getMapId() > 0 && !mapBeingDeleted) {
             String description = buildChangesDescription(changes);
-            int versionId = MapVersionDAO.createVersion(conn, changes.getMapId(), creatorUserId, description);
+            String initialStatus = asDraft ? "DRAFT" : "PENDING";
+            int versionId = MapVersionDAO.createVersion(conn, changes.getMapId(), creatorUserId, description, initialStatus);
             if (versionId > 0) {
                 validation.setCreatedVersionId(versionId);
-                MapVersionDAO.updateStatus(conn, versionId, "APPROVED", approverUserId, null);
-                AuditLogDAO.log(conn, AuditLogDAO.ACTION_VERSION_PUBLISHED, approverUserId,
-                        AuditLogDAO.ENTITY_MAP_VERSION, versionId,
-                        "from_request", mapEditRequestId > 0 ? String.valueOf(mapEditRequestId) : "direct");
+                if (!asDraft) {
+                    MapVersionDAO.updateStatus(conn, versionId, "APPROVED", approverUserId, null);
+                    AuditLogDAO.log(conn, AuditLogDAO.ACTION_VERSION_PUBLISHED, approverUserId,
+                            AuditLogDAO.ENTITY_MAP_VERSION, versionId,
+                            "from_request", mapEditRequestId > 0 ? String.valueOf(mapEditRequestId) : "direct");
+                }
             }
         }
 

@@ -19,7 +19,7 @@ public class DBConnector {
     // Database configuration
     private static final String URL = "jdbc:mysql://localhost:3306/gcm_db?serverTimezone=Asia/Jerusalem";
     private static final String USER = "root";
-    private static final String PASS = "momo8523";
+    private static final String PASS = "root";
 
     // Pool configuration
     private static final int MAX_POOL_SIZE = 10;

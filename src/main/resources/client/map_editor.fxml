@@ -215,7 +215,7 @@
             <Button text="💾 Save changes" onAction="#handleSaveChanges" prefWidth="190"
                     style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 10 15; -fx-background-radius: 5;"/>
             
-            <Button text="📤 Send to content manager" onAction="#handleSendToManager" prefWidth="190"
+            <Button fx:id="sendToManagerButton" text="📤 Send to content manager" onAction="#handleSendToManager" prefWidth="190"
                     style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 10 15; -fx-background-radius: 5;"/>
             
             <Button text="↩️ Discard Changes" onAction="#handleDiscardChanges" prefWidth="190"
@@ -237,7 +237,7 @@
             
             <VBox spacing="8" style="-fx-background-color: #16213e; -fx-padding: 12; -fx-background-radius: 8;">
                 <Label text="💾 Buttons" style="-fx-text-fill: #f39c12; -fx-font-size: 12px; -fx-font-weight: bold;"/>
-                <Label text="Save changes = save as draft (you can send later). Send to content manager = submit for approval. Discard = drop pending changes." wrapText="true" style="-fx-text-fill: #888; -fx-font-size: 11px;"/>
+                <Label text="Save = draft. Managers: Publish applies directly. Editors: Send to content manager = submit for approval. Discard = drop changes." wrapText="true" style="-fx-text-fill: #888; -fx-font-size: 11px;"/>
             </VBox>
         </VBox>
     </right>

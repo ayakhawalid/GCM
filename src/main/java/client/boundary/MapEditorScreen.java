@@ -1,5 +1,6 @@
 package client.boundary;
 
+import client.LoginController;
 import client.control.ContentManagementControl;
 import com.gluonhq.maps.MapLayer;
 import com.gluonhq.maps.MapPoint;
@@ -27,10 +28,19 @@ import javafx.scene.shape.SVGPath;
 import javafx.stage.Stage;
 import javafx.util.Pair;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+
 import java.io.IOException;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 
 /**
  * Controller for the Map Editor screen.
@@ -43,6 +53,8 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
     private Label statusLabel;
     @FXML
     private Button backButton;
+    @FXML
+    private Button sendToManagerButton;
 
     // Left panel - City/Map selection
     @FXML
@@ -143,6 +155,11 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
     public void initialize() {
         System.out.println("MapEditorScreen: Initializing");
 
+        // Show "Publish" for content managers, "Send to content manager" for editors
+        if (sendToManagerButton != null && LoginController.currentUserRole == LoginController.UserRole.MANAGER) {
+            sendToManagerButton.setText("📤 Publish");
+        }
+
         // Setup POI categories
         poiCategoryCombo.setItems(FXCollections.observableArrayList(
                 "Museum", "Beach", "Historic", "Religious", "Park", "Shopping",
@@ -176,11 +193,11 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
                 setStatus("Loading maps for " + selectedCity.getName() + "...");
             } else {
                 lastRequestedCityId = -1;
-                createMapBtn.setDisable(true);
+                createMapBtn.setDisable(false); // allow "Create new map" → creates new city + map when no city selected
                 mapsListView.getItems().clear();
                 mapsListView.getSelectionModel().clearSelection();
                 clearMapContent();
-                setStatus("No city selected");
+                setStatus("No city selected – you can still create a new map (and city)");
             }
         };
 
@@ -281,20 +298,40 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
     private static class PoiMarkerLayer extends MapLayer {
         private final List<Pair<MapPoint, Node>> entries = new ArrayList<>();
 
-        void addPoi(int id, double lat, double lng, String name) {
+        void addPoi(Poi p) {
+            if (p == null) return;
+            double lat = p.getLatitude() != null ? p.getLatitude() : 0;
+            double lng = p.getLongitude() != null ? p.getLongitude() : 0;
+            String name = p.getName() != null ? p.getName() : "";
             // Red pin: filled circle with a smaller white dot
             Circle outer = new Circle(10, Color.web("#e74c3c"));
             Circle inner = new Circle(4, Color.WHITE);
             StackPane pin = new StackPane(outer, inner);
-            pin.setUserData(id);
+            pin.setUserData(p.getId());
 
-            Tooltip tip = new Tooltip(name != null && !name.isEmpty() ? name : "POI");
+            StringBuilder tipText = new StringBuilder();
+            if (!name.isEmpty()) tipText.append(name);
+            if (p.getCategory() != null && !p.getCategory().isEmpty())
+                tipText.append(tipText.length() > 0 ? "\n" : "").append("Category: ").append(p.getCategory());
+            if (p.getShortExplanation() != null && !p.getShortExplanation().isEmpty())
+                tipText.append(tipText.length() > 0 ? "\n" : "").append(p.getShortExplanation());
+            if (tipText.length() == 0) tipText.append("POI");
+            Tooltip tip = new Tooltip(tipText.toString());
+            tip.setWrapText(true);
+            tip.setMaxWidth(300);
             Tooltip.install(pin, tip);
 
             MapPoint point = new MapPoint(lat, lng);
             entries.add(new Pair<>(point, pin));
             getChildren().add(pin);
             this.markDirty();
+        }
+
+        void addPoi(int id, double lat, double lng, String name) {
+            Poi p = new Poi(id, 0, name, null, null, null, true);
+            p.setLatitude(lat);
+            p.setLongitude(lng);
+            addPoi(p);
         }
 
         void clearPois() {
@@ -336,10 +373,11 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
                 }
             }
         }
-        if ((pois == null || pois.isEmpty()) && selectedCity != null) {
-            double[] def = defaultCenterForCity(selectedCity);
-            centerLat = def[0];
-            centerLng = def[1];
+        boolean noPoisWithCity = (pois == null || pois.isEmpty()) && selectedCity != null;
+        if (noPoisWithCity) {
+            double[] fallback = fallbackCenter();
+            centerLat = fallback[0];
+            centerLng = fallback[1];
         }
 
         mapView.flyTo(0, new MapPoint(centerLat, centerLng), 0.1);
@@ -350,8 +388,15 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
                 double lat = p.getLatitude() != null ? p.getLatitude() : parseLatLon(p.getLocation(), true);
                 double lng = p.getLongitude() != null ? p.getLongitude() : parseLatLon(p.getLocation(), false);
                 if (Double.isNaN(lat) || Double.isNaN(lng)) continue;
-                poiMarkerLayer.addPoi(p.getId(), lat, lng, p.getName());
+                poiMarkerLayer.addPoi(p);
             }
+        }
+
+        // When map has no POIs, center by OSM geocoding the city name (replaces hardcoded 4 cities)
+        if (noPoisWithCity) {
+            resolveCenterForCityWithNoPois(selectedCity, (lat, lon) -> {
+                if (mapView != null) mapView.flyTo(0, new MapPoint(lat, lon), 0.3);
+            });
         }
     }
 
@@ -366,19 +411,146 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
         }
     }
 
-    /** Default map center when the map has no POIs; uses city name so e.g. Cairo shows Cairo, not Haifa. */
-    private static double[] defaultCenterForCity(CityDTO city) {
-        if (city == null || city.getName() == null) return new double[] { 32.8, 34.99 };
-        String name = city.getName().trim().toLowerCase();
-        if (name.contains("cairo")) return new double[] { 30.0444, 31.2357 };
-        if (name.contains("haifa")) return new double[] { 32.8, 34.99 };
-        if (name.contains("tel aviv")) return new double[] { 32.0853, 34.7818 };
-        if (name.contains("jerusalem")) return new double[] { 31.7683, 35.2137 };
+    /** Fallback map center when geocoding fails or no city. */
+    private static double[] fallbackCenter() {
         return new double[] { 32.8, 34.99 };
     }
 
+    /** Cache for OSM Nominatim geocoding results (city name -> [lat, lon]). */
+    private static final ConcurrentHashMap<String, double[]> geocodeCache = new ConcurrentHashMap<>();
+
+    /** Cache for city bounding box (city name -> [minLat, maxLat, minLon, maxLon]). */
+    private static final ConcurrentHashMap<String, double[]> cityBoundsCache = new ConcurrentHashMap<>();
+
     /**
-     * Called when user clicks on the OSM map. Add a new POI at that location and show the edit form.
+     * Resolve map center when there are no POIs: use OSM Nominatim to geocode the city name.
+     * Runs in background; calls onResult on the JavaFX thread with (lat, lon) or fallback on failure.
+     */
+    private void resolveCenterForCityWithNoPois(CityDTO city, BiConsumer<Double, Double> onResult) {
+        double[] fallback = fallbackCenter();
+        if (city == null || city.getName() == null || city.getName().trim().isEmpty()) {
+            Platform.runLater(() -> onResult.accept(fallback[0], fallback[1]));
+            return;
+        }
+        String name = city.getName().trim();
+        String cacheKey = name.toLowerCase();
+        double[] cached = geocodeCache.get(cacheKey);
+        if (cached != null) {
+            Platform.runLater(() -> onResult.accept(cached[0], cached[1]));
+            return;
+        }
+        new Thread(() -> {
+            try {
+                String q = URLEncoder.encode(name, StandardCharsets.UTF_8);
+                URI uri = URI.create(
+                    "https://nominatim.openstreetmap.org/search?q=" + q + "&format=json&limit=1");
+                java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                    .connectTimeout(java.time.Duration.ofSeconds(5))
+                    .build();
+                java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(uri)
+                    .header("User-Agent", "GCM-System/1.0 (Java)")
+                    .GET()
+                    .build();
+                java.net.http.HttpResponse<String> response = client.send(request,
+                    java.net.http.HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                if (response.statusCode() != 200) {
+                    Platform.runLater(() -> onResult.accept(fallback[0], fallback[1]));
+                    return;
+                }
+                JsonArray arr = new Gson().fromJson(response.body(), JsonArray.class);
+                if (arr == null || arr.isEmpty()) {
+                    Platform.runLater(() -> onResult.accept(fallback[0], fallback[1]));
+                    return;
+                }
+                JsonObject first = arr.get(0).getAsJsonObject();
+                double lat = first.get("lat").getAsDouble();
+                double lon = first.get("lon").getAsDouble();
+                geocodeCache.put(cacheKey, new double[] { lat, lon });
+                double finalLat = lat;
+                double finalLon = lon;
+                Platform.runLater(() -> onResult.accept(finalLat, finalLon));
+            } catch (Exception e) {
+                System.err.println("MapEditorScreen: geocode failed for '" + name + "': " + e.getMessage());
+                Platform.runLater(() -> onResult.accept(fallback[0], fallback[1]));
+            }
+        }, "Geocode-" + name).start();
+    }
+
+    /**
+     * Check that (lat, lng) is inside the city's bounding box from OSM.
+     * Runs async if bounds not cached; calls onInside or onOutside on the JavaFX thread.
+     */
+    private void validatePoiLocationInCity(CityDTO city, double lat, double lng, Runnable onInside, Runnable onOutside) {
+        if (city == null || city.getName() == null || city.getName().trim().isEmpty()) {
+            Platform.runLater(onOutside);
+            return;
+        }
+        String name = city.getName().trim();
+        String cacheKey = name.toLowerCase();
+        double[] bounds = cityBoundsCache.get(cacheKey);
+        if (bounds != null) {
+            boolean inside = isPointInBounds(lat, lng, bounds);
+            Platform.runLater(inside ? onInside : onOutside);
+            return;
+        }
+        new Thread(() -> {
+            try {
+                String q = URLEncoder.encode(name, StandardCharsets.UTF_8);
+                URI uri = URI.create(
+                    "https://nominatim.openstreetmap.org/search?q=" + q + "&format=json&limit=1");
+                java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                    .connectTimeout(java.time.Duration.ofSeconds(8))
+                    .build();
+                java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(uri)
+                    .header("User-Agent", "GCM-System/1.0 (Java)")
+                    .GET()
+                    .build();
+                java.net.http.HttpResponse<String> response = client.send(request,
+                    java.net.http.HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                if (response.statusCode() != 200) {
+                    Platform.runLater(onOutside);
+                    return;
+                }
+                JsonArray arr = new Gson().fromJson(response.body(), JsonArray.class);
+                if (arr == null || arr.isEmpty()) {
+                    Platform.runLater(onOutside);
+                    return;
+                }
+                JsonObject first = arr.get(0).getAsJsonObject();
+                if (!first.has("boundingbox")) {
+                    Platform.runLater(onOutside);
+                    return;
+                }
+                com.google.gson.JsonArray bbox = first.getAsJsonArray("boundingbox");
+                if (bbox == null || bbox.size() < 4) {
+                    Platform.runLater(onOutside);
+                    return;
+                }
+                double minLat = Double.parseDouble(bbox.get(0).getAsString());
+                double maxLat = Double.parseDouble(bbox.get(1).getAsString());
+                double minLon = Double.parseDouble(bbox.get(2).getAsString());
+                double maxLon = Double.parseDouble(bbox.get(3).getAsString());
+                double[] b = new double[] { minLat, maxLat, minLon, maxLon };
+                cityBoundsCache.put(cacheKey, b);
+                boolean inside = isPointInBounds(lat, lng, b);
+                Platform.runLater(inside ? onInside : onOutside);
+            } catch (Exception e) {
+                System.err.println("MapEditorScreen: fetch city bounds failed: " + e.getMessage());
+                Platform.runLater(onOutside);
+            }
+        }, "CityBounds-" + name).start();
+    }
+
+    private static boolean isPointInBounds(double lat, double lng, double[] bounds) {
+        if (bounds == null || bounds.length < 4) return false;
+        double minLat = bounds[0], maxLat = bounds[1], minLon = bounds[2], maxLon = bounds[3];
+        return lat >= minLat && lat <= maxLat && lng >= minLon && lng <= maxLon;
+    }
+
+    /**
+     * Called when user clicks on the OSM map. Validate location is inside the city, then add POI.
      */
     private void addPoiAtLocation(double lat, double lng) {
         if (selectedCity == null) {
@@ -389,12 +561,22 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
             showError("Please select a map first");
             return;
         }
-        editingPoi = new Poi(0, selectedCity.getId(), "", "", "", "", true);
-        editingPoi.setLatitude(lat);
-        editingPoi.setLongitude(lng);
-        editingPoi.setLocation(String.format("%.6f,%.6f", lat, lng));
-        showPoiEditForm(editingPoi);
-        contentTabs.getSelectionModel().selectNext(); // switch to POIs tab to show the form
+        setStatus("Checking location...");
+        validatePoiLocationInCity(selectedCity, lat, lng,
+            () -> {
+                setStatus("Adding POI...");
+                editingPoi = new Poi(0, selectedCity.getId(), "", "", "", "", true);
+                editingPoi.setLatitude(lat);
+                editingPoi.setLongitude(lng);
+                editingPoi.setLocation(String.format("%.6f,%.6f", lat, lng));
+                showPoiEditForm(editingPoi);
+                contentTabs.getSelectionModel().selectNext();
+                setStatus("Ready");
+            },
+            () -> {
+                showError("This location is outside " + selectedCity.getName() + ". Please place the POI inside the city area.");
+                setStatus("Ready");
+            });
     }
 
     private void clearMapContent() {
@@ -518,27 +700,125 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
         TextInputDialog dialog = new TextInputDialog();
         dialog.setTitle("Create City");
         dialog.setHeaderText("Create a new city");
-        dialog.setContentText("City name:");
+        dialog.setContentText("City name (must be a real place on the map):");
 
         dialog.showAndWait().ifPresent(name -> {
-            if (!name.trim().isEmpty()) {
-                setStatus("Creating city...");
-                control.createCity(name.trim(), "New city description", 50.0);
-            }
+            String trimmed = name.trim();
+            if (trimmed.isEmpty()) return;
+            setStatus("Validating city name...");
+            validateCityNameAndCreate(trimmed);
         });
+    }
+
+    /** Check with OSM Nominatim that the place exists; only then create the city. */
+    private void validateCityNameAndCreate(String name) {
+        new Thread(() -> {
+            try {
+                String q = URLEncoder.encode(name, StandardCharsets.UTF_8);
+                URI uri = URI.create(
+                    "https://nominatim.openstreetmap.org/search?q=" + q + "&format=json&limit=1");
+                java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                    .connectTimeout(java.time.Duration.ofSeconds(8))
+                    .build();
+                java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(uri)
+                    .header("User-Agent", "GCM-System/1.0 (Java)")
+                    .GET()
+                    .build();
+                java.net.http.HttpResponse<String> response = client.send(request,
+                    java.net.http.HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                if (response.statusCode() != 200) {
+                    Platform.runLater(() -> {
+                        showError("Could not validate city. Please try again.");
+                        setStatus("Ready");
+                    });
+                    return;
+                }
+                JsonArray arr = new Gson().fromJson(response.body(), JsonArray.class);
+                if (arr == null || arr.isEmpty()) {
+                    Platform.runLater(() -> {
+                        showError("\"" + name + "\" was not found on the map. Please enter a valid city or place name (e.g. London, Paris, Tel Aviv).");
+                        setStatus("Ready");
+                    });
+                    return;
+                }
+                String finalName = name;
+                Platform.runLater(() -> {
+                    setStatus("Creating city...");
+                    control.createCity(finalName, "New city description", 50.0);
+                });
+            } catch (Exception e) {
+                System.err.println("MapEditorScreen: validate city failed: " + e.getMessage());
+                Platform.runLater(() -> {
+                    showError("Could not validate city. Check your connection and try again.");
+                    setStatus("Ready");
+                });
+            }
+        }, "ValidateCity-" + name).start();
     }
 
     // ==================== Map Operations ====================
 
     @FXML
     private void handleCreateMap() {
-        System.out.println("DEBUG: handleCreateMap called. SelectedCity: "
-                + (selectedCity != null ? selectedCity.getName() : "null"));
         if (selectedCity == null) {
-            showError("Please select a city first");
+            // Create new city + new map in one go (no city selected)
+            Dialog<String[]> dialog = new Dialog<>();
+            dialog.setTitle("Create New City and Map");
+            dialog.setHeaderText("Enter the new city name and the first map for it. The city will be created and must be approved by a content manager.");
+
+            ButtonType createButtonType = new ButtonType("Create", ButtonBar.ButtonData.OK_DONE);
+            dialog.getDialogPane().getButtonTypes().addAll(createButtonType, ButtonType.CANCEL);
+
+            TextField cityNameField = new TextField();
+            cityNameField.setPromptText("City name (e.g. Tel Aviv)");
+            cityNameField.setMinWidth(280);
+            TextField newMapNameField = new TextField();
+            newMapNameField.setPromptText("Map name");
+            newMapNameField.setMinWidth(280);
+            TextArea newMapDescArea = new TextArea();
+            newMapDescArea.setPromptText("Map description (optional)");
+            newMapDescArea.setPrefRowCount(3);
+            newMapDescArea.setWrapText(true);
+
+            GridPane grid = new GridPane();
+            grid.setHgap(10);
+            grid.setVgap(10);
+            grid.add(new Label("City name:"), 0, 0);
+            grid.add(cityNameField, 1, 0);
+            grid.add(new Label("Map name:"), 0, 1);
+            grid.add(newMapNameField, 1, 1);
+            grid.add(new Label("Map description:"), 0, 2);
+            grid.add(newMapDescArea, 1, 2);
+            dialog.getDialogPane().setContent(grid);
+
+            dialog.setResultConverter(btn -> {
+                if (btn == createButtonType) {
+                    String cityName = cityNameField.getText() != null ? cityNameField.getText().trim() : "";
+                    String mapName = newMapNameField.getText() != null ? newMapNameField.getText().trim() : "";
+                    String mapDesc = newMapDescArea.getText() != null ? newMapDescArea.getText().trim() : "";
+                    if (cityName.isEmpty() || mapName.isEmpty()) return null;
+                    return new String[]{ cityName, mapName, mapDesc };
+                }
+                return null;
+            });
+
+            Optional<String[]> result = dialog.showAndWait();
+            result.ifPresent(arr -> {
+                MapChanges ch = new MapChanges();
+                ch.setCreateNewCity(true);
+                ch.setNewCityName(arr[0]);
+                ch.setNewMapName(arr[1]);
+                ch.setNewMapDescription(arr[2]);
+                ch.setDraft(true);
+                setStatus("Creating new city and map...");
+                control.submitMapChanges(ch);
+                control.getCities();
+            });
             return;
         }
 
+        // Existing city: add a new map for it
         Dialog<String[]> dialog = new Dialog<>();
         dialog.setTitle("Create Map");
         dialog.setHeaderText("Add a new map for " + selectedCity.getName());
@@ -736,22 +1016,41 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
         editingPoi.setAccessible(poiAccessibleCheck.isSelected());
         editingPoi.setShortExplanation(poiDescArea.getText().trim());
 
-        // Add to pending changes and show in list
-        if (editingPoi.getId() == 0) {
-            pendingChanges.addPoi(editingPoi);
-            if (currentMapContent != null) {
-                currentMapContent.getPois().add(editingPoi);
-                poisListView.setItems(FXCollections.observableArrayList(currentMapContent.getPois()));
-            }
-            setStatus("POI added. Save or Send to manager to submit.");
-        } else {
-            pendingChanges.updatePoi(editingPoi);
-            poisListView.setItems(FXCollections.observableArrayList(currentMapContent.getPois()));
-            setStatus("POI updated in pending changes. Save or Send to manager to submit.");
+        double lat = editingPoi.getLatitude() != null ? editingPoi.getLatitude() : parseLatLon(editingPoi.getLocation(), true);
+        double lng = editingPoi.getLongitude() != null ? editingPoi.getLongitude() : parseLatLon(editingPoi.getLocation(), false);
+        if (Double.isNaN(lat) || Double.isNaN(lng)) {
+            showError("Valid coordinates are required (e.g. lat,lng or use the map to place the POI).");
+            return;
+        }
+        if (selectedCity == null) {
+            showError("No city selected.");
+            return;
         }
 
-        hasUnsavedChanges = true;
-        handleCancelPoiEdit();
+        setStatus("Checking location...");
+        validatePoiLocationInCity(selectedCity, lat, lng,
+            () -> {
+                editingPoi.setLatitude(lat);
+                editingPoi.setLongitude(lng);
+                if (editingPoi.getId() == 0) {
+                    pendingChanges.addPoi(editingPoi);
+                    if (currentMapContent != null) {
+                        currentMapContent.getPois().add(editingPoi);
+                        poisListView.setItems(FXCollections.observableArrayList(currentMapContent.getPois()));
+                    }
+                    setStatus("POI added. Save or Send to manager to submit.");
+                } else {
+                    pendingChanges.updatePoi(editingPoi);
+                    poisListView.setItems(FXCollections.observableArrayList(currentMapContent.getPois()));
+                    setStatus("POI updated in pending changes. Save or Send to manager to submit.");
+                }
+                hasUnsavedChanges = true;
+                handleCancelPoiEdit();
+            },
+            () -> {
+                showError("This location is outside " + selectedCity.getName() + ". Please place the POI inside the city area.");
+                setStatus("Ready");
+            });
     }
 
     @FXML
@@ -1049,7 +1348,8 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
         }
         pendingChanges.setDraft(asDraft);
         control.submitMapChanges(pendingChanges);
-        setStatus(asDraft ? "Saving changes as draft..." : "Sending to content manager...");
+        boolean isManager = LoginController.currentUserRole == LoginController.UserRole.MANAGER;
+        setStatus(asDraft ? "Saving changes as draft..." : (isManager ? "Publishing..." : "Sending to content manager..."));
         pendingChanges = new MapChanges();
         hasUnsavedChanges = false;
     }
@@ -1163,10 +1463,10 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
                 control.getMapsForCity(selectedCity.getId());
                 createMapBtn.setDisable(false);
             } else {
-                // No city to select - clear value explicitly
+                // No city to select - clear value explicitly; keep Create new map enabled (creates new city + map)
                 cityComboBox.setValue(null);
                 selectedCity = null;
-                createMapBtn.setDisable(true);
+                createMapBtn.setDisable(false);
             }
 
             pendingSelectCityId = -1; // Reset

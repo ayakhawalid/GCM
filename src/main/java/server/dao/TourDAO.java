@@ -110,14 +110,15 @@ public class TourDAO {
      * @return created tour ID, or -1 on failure
      */
     public static int createTour(Connection conn, TourDTO tour) throws SQLException {
-        String query = "INSERT INTO tours (city_id, name, general_description, estimated_duration_minutes) " +
-                "VALUES (?, ?, ?, ?)";
+        String query = "INSERT INTO tours (city_id, name, general_description, estimated_duration_minutes, total_distance_meters) " +
+                "VALUES (?, ?, ?, ?, ?)";
 
         PreparedStatement stmt = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
         stmt.setInt(1, tour.getCityId());
         stmt.setString(2, tour.getName());
         stmt.setString(3, tour.getDescription());
         stmt.setInt(4, tour.getEstimatedDurationMinutes());
+        setDistanceParam(stmt, 5, tour.getTotalDistanceMeters());
 
         int affected = stmt.executeUpdate();
 
@@ -153,13 +154,14 @@ public class TourDAO {
      */
     public static boolean updateTour(Connection conn, TourDTO tour) throws SQLException {
         String query = "UPDATE tours SET name = ?, general_description = ?, " +
-                "estimated_duration_minutes = ? WHERE id = ?";
+                "estimated_duration_minutes = ?, total_distance_meters = ? WHERE id = ?";
 
         PreparedStatement stmt = conn.prepareStatement(query);
         stmt.setString(1, tour.getName());
         stmt.setString(2, tour.getDescription());
         stmt.setInt(3, tour.getEstimatedDurationMinutes());
-        stmt.setInt(4, tour.getId());
+        setDistanceParam(stmt, 4, tour.getTotalDistanceMeters());
+        stmt.setInt(5, tour.getId());
 
         int affected = stmt.executeUpdate();
         System.out.println("TourDAO: Updated tour " + tour.getId() + ", affected: " + affected);
@@ -248,12 +250,28 @@ public class TourDAO {
      * Extract TourDTO from ResultSet.
      */
     private static TourDTO extractTour(ResultSet rs) throws SQLException {
-        return new TourDTO(
+        TourDTO t = new TourDTO(
                 rs.getInt("id"),
                 rs.getInt("city_id"),
                 rs.getString("name"),
                 rs.getString("general_description"),
                 rs.getInt("estimated_duration_minutes"));
+        try {
+            double d = rs.getDouble("total_distance_meters");
+            if (!rs.wasNull()) t.setTotalDistanceMeters(d);
+        } catch (SQLException ignored) { /* column may not exist before migration */ }
+        return t;
+    }
+
+    /**
+     * Get tour_id for a tour stop (e.g. to find affected tour when a stop is deleted).
+     */
+    public static Integer getTourIdForStop(Connection conn, int stopId) throws SQLException {
+        String sql = "SELECT tour_id FROM tour_stops WHERE id = ?";
+        PreparedStatement stmt = conn.prepareStatement(sql);
+        stmt.setInt(1, stopId);
+        ResultSet rs = stmt.executeQuery();
+        return rs.next() ? rs.getInt("tour_id") : null;
     }
 
     /**
@@ -265,5 +283,40 @@ public class TourDAO {
         stmt.setInt(1, poiId);
         ResultSet rs = stmt.executeQuery();
         return rs.next() && rs.getInt(1) > 0;
+    }
+
+    private static void setDistanceParam(PreparedStatement stmt, int index, Double meters) throws SQLException {
+        if (meters != null) stmt.setDouble(index, meters); else stmt.setNull(index, Types.DOUBLE);
+    }
+
+    /**
+     * Recompute total route distance from consecutive POI-to-POI distances and update the tour.
+     * Call after adding/updating/removing tour stops.
+     */
+    public static void recomputeAndUpdateTourDistance(Connection conn, int tourId) throws SQLException {
+        List<TourStopDTO> stops = getTourStops(conn, tourId);
+        if (stops.size() < 2) {
+            updateTourDistance(conn, tourId, null);
+            return;
+        }
+        double total = 0;
+        for (int i = 1; i < stops.size(); i++) {
+            int a = stops.get(i - 1).getPoiId();
+            int b = stops.get(i).getPoiId();
+            Double d = PoiDistanceDAO.getDistance(conn, a, b);
+            if (d != null) total += d;
+        }
+        updateTourDistance(conn, tourId, total);
+    }
+
+    /**
+     * Set total_distance_meters for a tour (used after recomputing from stops).
+     */
+    public static void updateTourDistance(Connection conn, int tourId, Double totalMeters) throws SQLException {
+        String sql = "UPDATE tours SET total_distance_meters = ? WHERE id = ?";
+        PreparedStatement stmt = conn.prepareStatement(sql);
+        setDistanceParam(stmt, 1, totalMeters);
+        stmt.setInt(2, tourId);
+        stmt.executeUpdate();
     }
 }

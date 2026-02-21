@@ -49,7 +49,7 @@ public class PoiDistanceDAO {
                 for (int j = i + 1; j < poiIds.size(); j++) {
                     int a = Math.min(poiIds.get(i), poiIds.get(j));
                     int b = Math.max(poiIds.get(i), poiIds.get(j));
-                    Double d = getDistance(conn, a, b);
+                    Double d = getDistanceInternal(conn, a, b);
                     if (d != null) {
                         out.put(a + "_" + b, d);
                     }
@@ -61,7 +61,17 @@ public class PoiDistanceDAO {
         return out;
     }
 
-    private static Double getDistance(Connection conn, int a, int b) throws SQLException {
+    /**
+     * Get distance in meters between two POIs using the given connection (for use inside a transaction).
+     */
+    public static Double getDistance(Connection conn, int poiId1, int poiId2) throws SQLException {
+        int a = Math.min(poiId1, poiId2);
+        int b = Math.max(poiId1, poiId2);
+        if (a == b) return 0.0;
+        return getDistanceInternal(conn, a, b);
+    }
+
+    private static Double getDistanceInternal(Connection conn, int a, int b) throws SQLException {
         String query = "SELECT distance_meters FROM poi_distances WHERE poi_id_a = ? AND poi_id_b = ?";
         PreparedStatement stmt = conn.prepareStatement(query);
         stmt.setInt(1, a);

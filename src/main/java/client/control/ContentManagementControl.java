@@ -66,10 +66,11 @@ public class ContentManagementControl implements GCMClient.MessageHandler {
     // ==================== City Operations ====================
 
     /**
-     * Get all cities for editor.
+     * Get all cities for editor (includes unapproved cities created by this user when session token is set).
      */
     public void getCities() {
-        Request request = new Request(MessageType.GET_CITIES);
+        String token = LoginController.currentSessionToken;
+        Request request = new Request(MessageType.GET_CITIES, null, token);
         sendRequest(request);
     }
 
@@ -93,10 +94,11 @@ public class ContentManagementControl implements GCMClient.MessageHandler {
     // ==================== Map Operations ====================
 
     /**
-     * Get maps for a city.
+     * Get maps for a city (includes unapproved maps created by this user when session token is set).
      */
     public void getMapsForCity(int cityId) {
-        Request request = new Request(MessageType.GET_MAPS_FOR_CITY, cityId);
+        String token = LoginController.currentSessionToken;
+        Request request = new Request(MessageType.GET_MAPS_FOR_CITY, cityId, token);
         sendRequest(request);
     }
 

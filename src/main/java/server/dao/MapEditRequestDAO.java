@@ -1,10 +1,14 @@
 package server.dao;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.reflect.TypeToken;
+import common.Poi;
 import common.dto.MapChanges;
 import common.dto.MapEditRequestDTO;
 import server.DBConnector;
 
+import java.lang.reflect.Type;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -12,6 +16,7 @@ import java.util.List;
 public class MapEditRequestDAO {
 
     private static final Gson gson = new Gson();
+    private static final Type LIST_POI = new TypeToken<List<Poi>>(){}.getType();
 
     static {
         createTable();
@@ -139,12 +144,44 @@ public class MapEditRequestDAO {
         String json = rs.getString("changes_json");
         if (json != null && !json.isEmpty()) {
             try {
-                dto.setChanges(gson.fromJson(json, MapChanges.class));
+                dto.setChanges(deserializeMapChanges(json));
             } catch (Exception e) {
                 System.err.println("Error deserializing map changes: " + e.getMessage());
+                e.printStackTrace();
             }
         }
 
         return dto;
+    }
+
+    /**
+     * Deserialize MapChanges from JSON with correct types for List&lt;Poi&gt; so POI details
+     * (name, category, description, etc.) are preserved for the manager approval view.
+     */
+    private static MapChanges deserializeMapChanges(String json) {
+        MapChanges changes = gson.fromJson(json, MapChanges.class);
+        if (changes == null) return null;
+        try {
+            JsonObject obj = gson.fromJson(json, JsonObject.class);
+            if (obj != null) {
+                if (obj.has("addedPois") && obj.get("addedPois").isJsonArray()) {
+                    List<Poi> added = gson.fromJson(obj.get("addedPois"), LIST_POI);
+                    if (added != null) {
+                        changes.getAddedPois().clear();
+                        changes.getAddedPois().addAll(added);
+                    }
+                }
+                if (obj.has("updatedPois") && obj.get("updatedPois").isJsonArray()) {
+                    List<Poi> updated = gson.fromJson(obj.get("updatedPois"), LIST_POI);
+                    if (updated != null) {
+                        changes.getUpdatedPois().clear();
+                        changes.getUpdatedPois().addAll(updated);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("MapEditRequestDAO: Fallback POI list deserialization failed: " + e.getMessage());
+        }
+        return changes;
     }
 }

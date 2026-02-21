@@ -16,15 +16,25 @@ import java.util.List;
 public class MapDAO {
 
     /**
-     * Get all maps for a city.
+     * Get all maps for a city visible to the current user: approved maps plus maps created by this user.
+     * @param currentUserId if <= 0, only approved maps are returned.
      */
-    public static List<MapSummary> getMapsForCity(int cityId) {
+    public static List<MapSummary> getMapsForCity(int cityId, int currentUserId) {
         List<MapSummary> maps = new ArrayList<>();
 
-        String query = "SELECT m.id, m.name, m.short_description, " +
-                "(SELECT COUNT(*) FROM map_pois WHERE map_id = m.id) as poi_count, " +
-                "(SELECT COUNT(*) FROM tours WHERE city_id = m.city_id) as tour_count " +
-                "FROM maps m WHERE m.city_id = ? ORDER BY m.name";
+        String query;
+        String poiCountSubquery = "(SELECT COUNT(*) FROM map_pois mp WHERE mp.map_id = m.id AND (mp.approved = 1 OR mp.approved IS NULL))";
+        if (currentUserId > 0) {
+            query = "SELECT m.id, m.name, m.short_description, " +
+                    poiCountSubquery + " as poi_count, " +
+                    "(SELECT COUNT(*) FROM tours WHERE city_id = m.city_id) as tour_count " +
+                    "FROM maps m WHERE m.city_id = ? AND (m.approved = 1 OR m.created_by = ?) ORDER BY m.name";
+        } else {
+            query = "SELECT m.id, m.name, m.short_description, " +
+                    poiCountSubquery + " as poi_count, " +
+                    "(SELECT COUNT(*) FROM tours WHERE city_id = m.city_id) as tour_count " +
+                    "FROM maps m WHERE m.city_id = ? AND m.approved = 1 ORDER BY m.name";
+        }
 
         try (Connection conn = DBConnector.getConnection()) {
             if (conn == null)
@@ -32,6 +42,7 @@ public class MapDAO {
 
             PreparedStatement stmt = conn.prepareStatement(query);
             stmt.setInt(1, cityId);
+            if (currentUserId > 0) stmt.setInt(2, currentUserId);
             ResultSet rs = stmt.executeQuery();
 
             while (rs.next()) {
@@ -46,9 +57,32 @@ public class MapDAO {
             System.out.println("MapDAO: Retrieved " + maps.size() + " maps for city " + cityId);
 
         } catch (SQLException e) {
-            e.printStackTrace();
+            try {
+                return getMapsForCityLegacy(cityId);
+            } catch (SQLException e2) {
+                e.printStackTrace();
+            }
         }
 
+        return maps;
+    }
+
+    private static List<MapSummary> getMapsForCityLegacy(int cityId) throws SQLException {
+        List<MapSummary> maps = new ArrayList<>();
+        String query = "SELECT m.id, m.name, m.short_description, " +
+                "(SELECT COUNT(*) FROM map_pois WHERE map_id = m.id) as poi_count, " +
+                "(SELECT COUNT(*) FROM tours WHERE city_id = m.city_id) as tour_count " +
+                "FROM maps m WHERE m.city_id = ? ORDER BY m.name";
+        try (Connection conn = DBConnector.getConnection()) {
+            if (conn == null) return maps;
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setInt(1, cityId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                maps.add(new MapSummary(rs.getInt("id"), rs.getString("name"), rs.getString("short_description"),
+                        rs.getInt("poi_count"), rs.getInt("tour_count")));
+            }
+        }
         return maps;
     }
 
@@ -102,29 +136,46 @@ public class MapDAO {
 
     /**
      * Create a new map.
-     * 
-     * @return created map ID, or -1 on failure
+     * @param createdBy user who created it; unapproved maps visible only to this user until approved.
+     * @param approved true if content manager created/approved.
      */
-    public static int createMap(Connection conn, int cityId, String name, String description) throws SQLException {
-        String query = "INSERT INTO maps (city_id, name, short_description) VALUES (?, ?, ?)";
-
-        PreparedStatement stmt = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
-        stmt.setInt(1, cityId);
-        stmt.setString(2, name);
-        stmt.setString(3, description);
-
-        int affected = stmt.executeUpdate();
-
-        if (affected > 0) {
-            ResultSet keys = stmt.getGeneratedKeys();
-            if (keys.next()) {
-                int mapId = keys.getInt(1);
-                System.out.println("MapDAO: Created map with ID " + mapId);
-                return mapId;
+    public static int createMap(Connection conn, int cityId, String name, String description, int createdBy, boolean approved) throws SQLException {
+        try {
+            String query = "INSERT INTO maps (city_id, name, short_description, created_by, approved) VALUES (?, ?, ?, ?, ?)";
+            PreparedStatement stmt = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);
+            stmt.setInt(1, cityId);
+            stmt.setString(2, name);
+            stmt.setString(3, description);
+            stmt.setInt(4, createdBy <= 0 ? 1 : createdBy);
+            stmt.setInt(5, approved ? 1 : 0);
+            int affected = stmt.executeUpdate();
+            if (affected > 0) {
+                ResultSet keys = stmt.getGeneratedKeys();
+                if (keys.next()) {
+                    int mapId = keys.getInt(1);
+                    System.out.println("MapDAO: Created map with ID " + mapId);
+                    return mapId;
+                }
             }
+        } catch (SQLException e) {
+            if (e.getMessage() != null && (e.getMessage().contains("approved") || e.getMessage().contains("created_by"))) {
+                PreparedStatement stmt = conn.prepareStatement("INSERT INTO maps (city_id, name, short_description) VALUES (?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
+                stmt.setInt(1, cityId);
+                stmt.setString(2, name);
+                stmt.setString(3, description);
+                int affected = stmt.executeUpdate();
+                if (affected > 0) {
+                    ResultSet keys = stmt.getGeneratedKeys();
+                    if (keys.next()) return keys.getInt(1);
+                }
+            } else throw e;
         }
-
         return -1;
+    }
+
+    /** Create map without approval columns (backward compatibility). */
+    public static int createMap(Connection conn, int cityId, String name, String description) throws SQLException {
+        return createMap(conn, cityId, name, description, 1, true);
     }
 
     /**
@@ -138,6 +189,39 @@ public class MapDAO {
         } catch (SQLException e) {
             e.printStackTrace();
             return -1;
+        }
+    }
+
+    /**
+     * Find an unapproved (draft) map by city and name. Used when manager approves so we approve the existing map instead of creating a duplicate.
+     */
+    public static Integer findUnapprovedMapByCityAndName(Connection conn, int cityId, String mapName) throws SQLException {
+        if (mapName == null || mapName.trim().isEmpty()) return null;
+        try {
+            String sql = "SELECT id FROM maps WHERE city_id = ? AND TRIM(name) = ? AND (approved = 0 OR approved IS NULL) LIMIT 1";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setInt(1, cityId);
+            stmt.setString(2, mapName.trim());
+            ResultSet rs = stmt.executeQuery();
+            return rs.next() ? rs.getInt("id") : null;
+        } catch (SQLException e) {
+            if (e.getMessage() != null && (e.getMessage().contains("approved") || e.getMessage().contains("created_by"))) return null;
+            throw e;
+        }
+    }
+
+    /**
+     * Set a map as approved so it appears in the catalog.
+     */
+    public static boolean setMapApproved(Connection conn, int mapId) throws SQLException {
+        try {
+            String sql = "UPDATE maps SET approved = 1 WHERE id = ?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setInt(1, mapId);
+            return stmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            if (e.getMessage() != null && e.getMessage().contains("approved")) return false;
+            throw e;
         }
     }
 

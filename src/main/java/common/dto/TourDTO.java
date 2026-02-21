@@ -16,6 +16,8 @@ public class TourDTO implements Serializable {
     private String name;
     private String description;
     private int estimatedDurationMinutes;
+    /** Total route distance in meters (sum of consecutive POI-to-POI distances). */
+    private Double totalDistanceMeters;
     private List<TourStopDTO> stops;
 
     public TourDTO() {
@@ -84,6 +86,14 @@ public class TourDTO implements Serializable {
 
     public void setEstimatedDurationMinutes(int estimatedDurationMinutes) {
         this.estimatedDurationMinutes = estimatedDurationMinutes;
+    }
+
+    public Double getTotalDistanceMeters() {
+        return totalDistanceMeters;
+    }
+
+    public void setTotalDistanceMeters(Double totalDistanceMeters) {
+        this.totalDistanceMeters = totalDistanceMeters;
     }
 
     public List<TourStopDTO> getStops() {

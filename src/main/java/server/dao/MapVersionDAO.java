@@ -15,26 +15,37 @@ public class MapVersionDAO {
 
     /**
      * Create a new map version with PENDING status.
-     * 
+     */
+    public static int createVersion(Connection conn, int mapId, int createdBy, String descriptionText)
+            throws SQLException {
+        return createVersion(conn, mapId, createdBy, descriptionText, "PENDING");
+    }
+
+    /**
+     * Create a new map version with the given initial status (e.g. PENDING, DRAFT).
+     *
      * @param conn            Database connection (for transaction support)
      * @param mapId           Map ID
      * @param createdBy       User ID of creator
      * @param descriptionText Description of changes
+     * @param initialStatus   Status to set (e.g. PENDING, DRAFT)
      * @return New version ID, or -1 on failure
      */
-    public static int createVersion(Connection conn, int mapId, int createdBy, String descriptionText)
+    public static int createVersion(Connection conn, int mapId, int createdBy, String descriptionText, String initialStatus)
             throws SQLException {
         // Get next version number for this map
         int nextVersion = getNextVersionNumber(conn, mapId);
+        String status = (initialStatus != null && !initialStatus.isEmpty()) ? initialStatus : "PENDING";
 
         String sql = "INSERT INTO map_versions (map_id, version_number, status, description_text, created_by) " +
-                "VALUES (?, ?, 'PENDING', ?, ?)";
+                "VALUES (?, ?, ?, ?, ?)";
 
         try (PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             stmt.setInt(1, mapId);
             stmt.setInt(2, nextVersion);
-            stmt.setString(3, descriptionText);
-            stmt.setInt(4, createdBy);
+            stmt.setString(3, status);
+            stmt.setString(4, descriptionText);
+            stmt.setInt(5, createdBy);
 
             int affected = stmt.executeUpdate();
             if (affected > 0) {

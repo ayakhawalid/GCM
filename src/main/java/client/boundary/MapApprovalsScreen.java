@@ -100,23 +100,41 @@ public class MapApprovalsScreen implements ContentManagementControl.ContentCallb
 
         if (changes.getNewMapName() != null) {
             sb.append("• Updating/Creating Map Info:\n  Name: ").append(changes.getNewMapName())
-                    .append("\n  Desc: ").append(changes.getNewMapDescription()).append("\n\n");
+                    .append("\n  Desc: ").append(nullToEmpty(changes.getNewMapDescription())).append("\n\n");
         }
 
+        // POIs section – always show so manager sees POI details when present
+        sb.append("• POIs:\n");
         if (!changes.getAddedPois().isEmpty()) {
-            sb.append("• Added ").append(changes.getAddedPois().size()).append(" POIs:\n");
-            changes.getAddedPois().forEach(
-                    p -> sb.append("  + ").append(p.getName()).append(" (").append(p.getCategory()).append(")\n"));
-            sb.append("\n");
+            sb.append("  Added ").append(changes.getAddedPois().size()).append(" POI(s):\n");
+            for (Poi p : changes.getAddedPois()) {
+                sb.append("  ─────────────────\n");
+                sb.append("  Name: ").append(nullToEmpty(p.getName())).append("\n");
+                sb.append("  Category: ").append(nullToEmpty(p.getCategory())).append("\n");
+                if (p.getShortExplanation() != null && !p.getShortExplanation().isEmpty())
+                    sb.append("  Description: ").append(p.getShortExplanation()).append("\n");
+                String loc = formatPoiLocation(p);
+                if (!loc.isEmpty()) sb.append("  Location: ").append(loc).append("\n");
+                sb.append("  Accessible: ").append(p.isAccessible()).append("\n");
+            }
         }
-
         if (!changes.getUpdatedPois().isEmpty()) {
-            sb.append("• Updated ").append(changes.getUpdatedPois().size()).append(" POIs\n\n");
+            sb.append("  Updated ").append(changes.getUpdatedPois().size()).append(" POI(s):\n");
+            for (Poi p : changes.getUpdatedPois()) {
+                sb.append("  - ").append(nullToEmpty(p.getName()))
+                        .append(" (").append(nullToEmpty(p.getCategory())).append(")");
+                if (p.getShortExplanation() != null && !p.getShortExplanation().isEmpty())
+                    sb.append(" — ").append(truncate(p.getShortExplanation(), 60));
+                sb.append("\n");
+            }
         }
-
         if (!changes.getDeletedPoiIds().isEmpty()) {
-            sb.append("• Deleted ").append(changes.getDeletedPoiIds().size()).append(" POIs\n\n");
+            sb.append("  Deleted ").append(changes.getDeletedPoiIds().size()).append(" POI(s)\n");
         }
+        if (changes.getAddedPois().isEmpty() && changes.getUpdatedPois().isEmpty() && changes.getDeletedPoiIds().isEmpty()) {
+            sb.append("  (no POI changes in this request)\n");
+        }
+        sb.append("\n");
 
         if (!changes.getAddedTours().isEmpty()) {
             sb.append("• Added ").append(changes.getAddedTours().size()).append(" tour(s):\n");
@@ -134,6 +152,23 @@ public class MapApprovalsScreen implements ContentManagementControl.ContentCallb
         if (sb.length() == 0)
             return "No visible changes recorded.";
         return sb.toString();
+    }
+
+    private static String nullToEmpty(String s) {
+        return s == null ? "" : s;
+    }
+
+    private static String formatPoiLocation(Poi p) {
+        if (p.getLatitude() != null && p.getLongitude() != null)
+            return String.format("%.5f, %.5f", p.getLatitude(), p.getLongitude());
+        if (p.getLocation() != null && !p.getLocation().trim().isEmpty())
+            return p.getLocation().trim();
+        return "";
+    }
+
+    private static String truncate(String s, int maxLen) {
+        if (s == null) return "";
+        return s.length() <= maxLen ? s : s.substring(0, maxLen) + "...";
     }
 
     @FXML
