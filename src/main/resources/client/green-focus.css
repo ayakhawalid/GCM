@@ -1,0 +1,35 @@
+.text-field, .password-field {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-effect: null;
+}
+
+.text-field:hover, .password-field:hover {
+    -fx-border-color: #00712d;
+}
+
+.text-field:focused, .password-field:focused {
+    -fx-border-color: #00712d;
+    -fx-border-width: 1.5;
+    -fx-effect: null;
+}
+
+.hyperlink {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-color: transparent;
+}
+
+.hyperlink:focused {
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-color: transparent;
+    -fx-effect: null;
+}
+
+.hyperlink:hover {
+    -fx-border-color: transparent;
+    -fx-background-color: transparent;
+}

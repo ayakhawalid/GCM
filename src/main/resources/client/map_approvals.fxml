@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.web.WebView?>
+
+<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
+            fx:controller="client.boundary.MapApprovalsScreen"
+            style="-fx-background-color: #f5f6fa;">
+    
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="12" style="-fx-background-color: white; -fx-padding: 14 20; -fx-border-color: #e7e7e7; -fx-border-width: 0 0 1 0;">
+            <Button fx:id="backButton" onAction="#handleBack" style="-fx-background-color: transparent; -fx-text-fill: #111111; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;" text="← Back" />
+            <Button onAction="#toggleGuestDashboard" style="-fx-background-color: #d5ed9f; -fx-text-fill: #00712d; -fx-font-family: 'Segoe UI', 'Trebuchet MS', sans-serif; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 10; -fx-padding: 6 14; -fx-cursor: hand;" text="Menu" />
+            <Region HBox.hgrow="ALWAYS" />
+            <Label fx:id="statusLabel" text="Ready" style="-fx-text-fill: #888; -fx-font-size: 13px;"/>
+            <HBox alignment="CENTER_RIGHT" spacing="8">
+                <WebView fx:id="navbarLogoView1" contextMenuEnabled="false" maxHeight="30" maxWidth="30" minHeight="30" minWidth="30" prefHeight="30" prefWidth="30" />
+                <Label style="-fx-text-fill: black; -fx-font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; -fx-font-size: 24px; -fx-font-weight: bold;" text="Global City Map" />
+            </HBox>
+        </HBox>
+    </top>
+    
+    <center>
+        <HBox>
+            <VBox fx:id="guestDashboardPane" managed="false" minWidth="260" maxWidth="260" prefWidth="260" spacing="0" style="-fx-background-color: white; -fx-border-color: #e3e3e3; -fx-border-width: 0 1 0 0;" visible="false">
+                <VBox spacing="0" style="-fx-padding: 8 0;">
+                    <Button text="Browse Catalog" onAction="#openSearchScreenFromAction" maxWidth="1.7976931348623157E308" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="mapEditorNavBtn" text="Map Editor" onAction="#openMapEditorFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="myPurchasesNavBtn" text="My Purchases" onAction="#openMyPurchasesFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="profileNavBtn" text="My Profile" onAction="#openProfileFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="customersNavBtn" text="Customers" onAction="#openAdminCustomersFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="pricingNavBtn" text="Pricing" onAction="#openPricingFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="pricingApprovalNavBtn" text="Approve Prices" onAction="#openPricingApprovalFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="supportNavBtn" text="Support" onAction="#openSupportFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="agentConsoleNavBtn" text="Agent Console" onAction="#openAgentConsoleFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="editApprovalsNavBtn" text="Edit Approvals" onAction="#openEditApprovalsFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="reportsNavBtn" text="City Reports" onAction="#openReportsFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="userManagementNavBtn" text="User Management" onAction="#openUserManagementFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                </VBox>
+            </VBox>
+            <!-- Left Panel: Pending Requests -->
+            <VBox minWidth="300" prefWidth="300" spacing="10" style="-fx-background-color: #ecf0f1; -fx-padding: 15;">
+                <Label text="Pending Requests" style="-fx-text-fill: #2c3e50; -fx-font-size: 16px; -fx-font-weight: bold;"/>
+                <ListView fx:id="requestsListView" VBox.vgrow="ALWAYS"
+                          style="-fx-background-color: white; -fx-control-inner-background: white;"/>
+                <Button text="🔄 Refresh" onAction="#handleRefresh" prefWidth="300"
+                        style="-fx-background-color: #34495e; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 10; -fx-background-radius: 5;"/>
+            </VBox>
+            <VBox fx:id="detailsPanel" visible="false" spacing="20" style="-fx-padding: 25; -fx-background-color: #f5f6fa;" HBox.hgrow="ALWAYS">
+                <!-- Header Info -->
+                <VBox spacing="10" style="-fx-background-color: #ecf0f1; -fx-padding: 20; -fx-background-radius: 10;">
+                    <HBox spacing="15" alignment="CENTER_LEFT">
+                        <Label fx:id="mapNameLabel" text="Map Name" style="-fx-text-fill: #2c3e50; -fx-font-size: 20px; -fx-font-weight: bold;"/>
+                        <Label fx:id="cityNameLabel" text="City Name" style="-fx-text-fill: #7f8c8d; -fx-font-size: 14px;"/>
+                    </HBox>
+                    <HBox spacing="20">
+                        <Label fx:id="userLabel" text="By: User" style="-fx-text-fill: #3498db;"/>
+                        <Label fx:id="dateLabel" text="Date: YYYY-MM-DD" style="-fx-text-fill: #7f8c8d;"/>
+                    </HBox>
+                </VBox>
+                
+                <!-- Changes Summary -->
+                <VBox spacing="10" VBox.vgrow="ALWAYS" style="-fx-background-color: #ecf0f1; -fx-padding: 20; -fx-background-radius: 10;">
+                    <Label text="Changes Summary" style="-fx-text-fill: #2c3e50; -fx-font-size: 16px; -fx-font-weight: bold;"/>
+                    <TextArea fx:id="changesArea" editable="false" wrapText="true" VBox.vgrow="ALWAYS"
+                              style="-fx-control-inner-background: white; -fx-text-fill: #2c3e50; -fx-font-family: 'Consolas', monospace;"/>
+                </VBox>
+                
+                <!-- Action Buttons -->
+                <HBox spacing="20" alignment="CENTER_RIGHT">
+                    <Button text="❌ Reject" onAction="#handleReject"
+                            style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 30; -fx-background-radius: 5;"/>
+                    <Button text="✅ Approve &amp; Publish" onAction="#handleApprove"
+                            style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 30; -fx-background-radius: 5;"/>
+                </HBox>
+            </VBox>
+        </HBox>
+    </center>
+    
+</BorderPane>

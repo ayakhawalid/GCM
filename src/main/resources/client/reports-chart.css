@@ -1,0 +1,4 @@
+/* Black bars (lines) for report chart */
+.reports-chart .chart-bar {
+    -fx-bar-fill: black;
+}

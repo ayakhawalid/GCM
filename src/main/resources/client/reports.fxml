@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.DatePicker?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.web.WebView?>
+
+<BorderPane style="-fx-background-color: #f5f6fa;" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="client.boundary.ReportsController">
+
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="12" style="-fx-background-color: white; -fx-padding: 14 20; -fx-border-color: #e7e7e7; -fx-border-width: 0 0 1 0;">
+            <Button onAction="#handleBack" style="-fx-background-color: transparent; -fx-text-fill: #111111; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;" text="← Back" />
+            <Button onAction="#toggleGuestDashboard" style="-fx-background-color: #d5ed9f; -fx-text-fill: #00712d; -fx-font-family: 'Segoe UI', 'Trebuchet MS', sans-serif; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 10; -fx-padding: 6 14; -fx-cursor: hand;" text="Menu" />
+            <Region HBox.hgrow="ALWAYS" />
+            <HBox alignment="CENTER_RIGHT" spacing="8">
+                <WebView fx:id="navbarLogoView1" contextMenuEnabled="false" maxHeight="30" maxWidth="30" minHeight="30" minWidth="30" prefHeight="30" prefWidth="30" />
+                <Label style="-fx-text-fill: black; -fx-font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; -fx-font-size: 24px; -fx-font-weight: bold;" text="Global City Map" />
+            </HBox>
+        </HBox>
+    </top>
+
+   <center>
+      <HBox spacing="0">
+            <VBox fx:id="guestDashboardPane" managed="false" maxWidth="260" prefWidth="260" spacing="0" style="-fx-background-color: white; -fx-border-color: #e3e3e3; -fx-border-width: 0 1 0 0;" visible="false">
+                <VBox spacing="0" style="-fx-padding: 8 0;">
+                    <Button text="Browse Catalog" onAction="#openSearchScreenFromAction" maxWidth="1.7976931348623157E308" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="mapEditorNavBtn" text="Map Editor" onAction="#openMapEditorFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="myPurchasesNavBtn" text="My Purchases" onAction="#openMyPurchasesFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="profileNavBtn" text="My Profile" onAction="#openProfileFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="customersNavBtn" text="Customers" onAction="#openAdminCustomersFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="pricingNavBtn" text="Pricing" onAction="#openPricingFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="pricingApprovalNavBtn" text="Approve Prices" onAction="#openPricingApprovalFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="supportNavBtn" text="Support" onAction="#openSupportFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="agentConsoleNavBtn" text="Agent Console" onAction="#openAgentConsoleFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="editApprovalsNavBtn" text="Edit Approvals" onAction="#openEditApprovalsFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="reportsNavBtn" text="City Reports" onAction="#openReportsFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button fx:id="userManagementNavBtn" text="User Management" onAction="#openUserManagementFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                </VBox>
+            </VBox>
+      <VBox spacing="20.0" style="-fx-padding: 25;" HBox.hgrow="ALWAYS">
+
+            <HBox alignment="CENTER_LEFT" spacing="15.0" style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 1);">
+               <padding>
+                  <Insets bottom="15.0" left="15.0" right="15.0" top="15.0" />
+               </padding>
+               <children>
+                  <VBox spacing="5.0">
+                     <Label text="From Date" textFill="#666666" />
+                     <DatePicker fx:id="startDatePicker" prefWidth="150.0" />
+                  </VBox>
+                  <VBox spacing="5.0">
+                     <Label text="To Date" textFill="#666666" />
+                     <DatePicker fx:id="endDatePicker" prefWidth="150.0" />
+                  </VBox>
+                  <VBox spacing="5.0">
+                     <Label text="City (Optional)" textFill="#666666" />
+                     <ComboBox fx:id="cityComboBox" prefWidth="200.0" promptText="All Cities" />
+                  </VBox>
+                  <Button mnemonicParsing="false" onAction="#handleGenerateReport" style="-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-weight: bold;" text="Generate Report">
+                     <HBox.margin>
+                        <Insets top="20.0" />
+                     </HBox.margin>
+                  </Button>
+               </children>
+            </HBox>
+
+            <VBox fx:id="chartContainer" minHeight="380.0" prefHeight="400.0" VBox.vgrow="ALWAYS" style="-fx-background-color: white; -fx-background-radius: 8; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 5, 0, 0, 1);">
+               <padding>
+                  <Insets bottom="10.0" left="10.0" right="10.0" top="10.0" />
+               </padding>
+            </VBox>
+
+            <VBox spacing="8.0">
+               <Label text="Report values (numbers for this period):" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
+               <Label fx:id="valuesLabel" text="Maps: —  One-time: —  Subscriptions: —  Renewals: —  Views: —  Downloads: —" wrapText="true" style="-fx-font-size: 13px; -fx-padding: 4 0 0 0;"/>
+               <Label fx:id="statusLabel" text="Select dates and click Generate Report." textFill="#666666" style="-fx-font-size: 11px;"/>
+            </VBox>
+
+      </VBox>
+      </HBox>
+   </center>
+
+   <bottom>
+      <HBox alignment="CENTER" spacing="20" style="-fx-background-color: #ecf0f1; -fx-padding: 10;">
+         <Label style="-fx-text-fill: #7f8c8d; -fx-font-size: 11px;" text="City Reports" />
+         <Label style="-fx-text-fill: #7f8c8d;" text="*" />
+         <Label style="-fx-text-fill: #27ae60; -fx-font-size: 11px;" text="Manager View" />
+      </HBox>
+   </bottom>
+</BorderPane>
