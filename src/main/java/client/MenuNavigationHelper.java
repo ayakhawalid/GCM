@@ -45,7 +45,7 @@ public final class MenuNavigationHelper {
         boolean isAnonymous = role == LoginController.UserRole.ANONYMOUS;
 
         setVisible(mapEditorNavBtn, !isCustomer && !isAnonymous);
-        setVisible(myPurchasesNavBtn, isCustomer);
+        setVisible(myPurchasesNavBtn, !isAnonymous);
         setVisible(profileNavBtn, !isAnonymous);
         setVisible(customersNavBtn, isManager);
         setVisible(pricingNavBtn, isManager);

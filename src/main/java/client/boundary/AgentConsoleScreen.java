@@ -1,6 +1,7 @@
 package client.boundary;
 
 import client.GCMClient;
+import client.LoginController;
 import client.MenuNavigationHelper;
 import common.MessageType;
 import common.Request;
@@ -46,7 +47,6 @@ public class AgentConsoleScreen {
     @FXML private Button editApprovalsNavBtn;
     @FXML private Button reportsNavBtn;
     @FXML private Button userManagementNavBtn;
-
     private static final String NAVBAR_LOGO_SVG_RESOURCE = "/client/assets/favicon.svg";
 
     @FXML
@@ -475,7 +475,6 @@ public class AgentConsoleScreen {
     @FXML private void openEditApprovalsFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToEditApprovals(guestDashboardPane); }
     @FXML private void openReportsFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToReports(guestDashboardPane); }
     @FXML private void openUserManagementFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToUserManagement(guestDashboardPane); }
-
     @FXML
     private void goBack() {
         try {

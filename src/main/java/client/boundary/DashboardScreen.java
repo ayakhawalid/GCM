@@ -2,6 +2,7 @@ package client.boundary;
 
 import client.GCMClient;
 import client.LoginController;
+import client.MenuNavigationHelper;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -66,11 +67,15 @@ public class DashboardScreen implements GCMClient.MessageHandler {
     @FXML
     private Label notificationBadge;
     @FXML
+    private Label welcomeLabel;
+    @FXML
     private VBox guestDashboardPane;
     @FXML
     private AnchorPane guestMapAnchorPane;
     @FXML
     private WebView navbarLogoView;
+    @FXML
+    private WebView logoutIconView;
 
     @FXML private Button mapEditorNavBtn;
     @FXML private Button myPurchasesNavBtn;
@@ -83,6 +88,7 @@ public class DashboardScreen implements GCMClient.MessageHandler {
     @FXML private Button editApprovalsNavBtn;
     @FXML private Button reportsNavBtn;
     @FXML private Button userManagementNavBtn;
+    @FXML private Button browseCatalogBtn;
 
 
     private GCMClient client;
@@ -91,6 +97,7 @@ public class DashboardScreen implements GCMClient.MessageHandler {
     private GuestPoiMarkerLayer guestPoiMarkerLayer;
     private static final ConcurrentHashMap<String, double[]> guestCityGeocodeCache = new ConcurrentHashMap<>();
     private static final String NAVBAR_LOGO_SVG_RESOURCE = "/client/assets/favicon.svg";
+    private static final String SIGN_OUT_SVG_RESOURCE = "/client/assets/sign-out.svg";
     private static final double GUEST_INITIAL_ZOOM = 3.2;
     private static final double GUEST_ZOOM_STEP = 0.4;
     private static final double GUEST_MIN_ZOOM = GUEST_INITIAL_ZOOM;
@@ -99,7 +106,17 @@ public class DashboardScreen implements GCMClient.MessageHandler {
     public void initialize() {
         System.out.println("DashboardScreen: Initializing");
 
+        if (browseCatalogBtn != null) {
+            browseCatalogBtn.setOnAction(e -> {
+                Node nodeForStage = (rootPane != null && rootPane.getScene() != null) ? rootPane : guestDashboardPane;
+                if (nodeForStage != null && nodeForStage.getScene() != null) {
+                    MenuNavigationHelper.navigateToCatalog(nodeForStage);
+                }
+            });
+        }
+
         applyNavbarLogoSvg();
+        applyLogoutIconSvg();
 
         LoginController.UserRole role = LoginController.currentUserRole;
         String exactRole = LoginController.currentRoleString;
@@ -107,6 +124,17 @@ public class DashboardScreen implements GCMClient.MessageHandler {
 
         if (guestMode && logoutBtn != null) {
             logoutBtn.setText("← Back");
+        }
+        if (logoutIconView != null) {
+            logoutIconView.setVisible(!guestMode);
+            logoutIconView.setManaged(!guestMode);
+        }
+        if (welcomeLabel != null) {
+            welcomeLabel.setVisible(!guestMode);
+            welcomeLabel.setManaged(!guestMode);
+            if (!guestMode) {
+                welcomeLabel.setText("Welcome back, " + LoginController.getCurrentUsername());
+            }
         }
 
         configureSidebarButtons(role, exactRole);
@@ -138,7 +166,7 @@ public class DashboardScreen implements GCMClient.MessageHandler {
         boolean isAnonymous = role == LoginController.UserRole.ANONYMOUS;
 
         showButton(profileNavBtn, !isAnonymous);
-        showButton(myPurchasesNavBtn, isCustomer);
+        showButton(myPurchasesNavBtn, !isAnonymous);
         showButton(mapEditorNavBtn, !isCustomer && !isAnonymous);
         showButton(customersNavBtn, isManager);
         showButton(pricingNavBtn, isManager);
@@ -172,6 +200,30 @@ public class DashboardScreen implements GCMClient.MessageHandler {
         } catch (Exception e) {
             navbarLogoView.setVisible(false);
             navbarLogoView.setManaged(false);
+        }
+    }
+
+    private void applyLogoutIconSvg() {
+        if (logoutIconView == null) {
+            return;
+        }
+        try (java.io.InputStream in = getClass().getResourceAsStream(SIGN_OUT_SVG_RESOURCE)) {
+            if (in == null) {
+                logoutIconView.setVisible(false);
+                logoutIconView.setManaged(false);
+                return;
+            }
+            byte[] svgBytes = in.readAllBytes();
+            String base64 = java.util.Base64.getEncoder().encodeToString(svgBytes);
+            String dataUri = "data:image/svg+xml;base64," + base64;
+            String html = "<!DOCTYPE html><html><head><style>"
+                    + "body{margin:0;padding:0;overflow:hidden;background:transparent;} "
+                    + "img{width:20px;height:20px;display:block;}"
+                    + "</style></head><body><img src=\"" + dataUri + "\"/></body></html>";
+            logoutIconView.getEngine().loadContent(html);
+        } catch (Exception e) {
+            logoutIconView.setVisible(false);
+            logoutIconView.setManaged(false);
         }
     }
 
@@ -413,8 +465,11 @@ public class DashboardScreen implements GCMClient.MessageHandler {
     // ==================== Quick Action Cards ====================
 
     @FXML
-    private void openSearchScreenFromAction(ActionEvent event) {
-        navigateTo("/client/catalog_search.fxml", "GCM - City Catalog", 1100, 750);
+    public void openSearchScreenFromAction(ActionEvent event) {
+        Node nodeForStage = (rootPane != null && rootPane.getScene() != null) ? rootPane : guestDashboardPane;
+        if (nodeForStage != null && nodeForStage.getScene() != null) {
+            MenuNavigationHelper.navigateToCatalog(nodeForStage);
+        }
     }
 
     @FXML
@@ -530,59 +585,81 @@ public class DashboardScreen implements GCMClient.MessageHandler {
     }
 
     private void showNotificationsDialog() {
-        // Create dialog
+        // Load notifications in background so the dialog doesn't block the response (showAndWait blocks FX thread)
+        if (client == null) {
+            showAlert(Alert.AlertType.WARNING, "Notifications", "Not connected", "Cannot load notifications.");
+            return;
+        }
+        String token = LoginController.currentSessionToken;
+        new Thread(() -> {
+            try {
+                Response response = client.sendRequestSync(new Request(MessageType.GET_MY_NOTIFICATIONS, null, token));
+                List<NotificationDTO> notifications = new ArrayList<>();
+                if (response.isOk() && response.getPayload() instanceof List<?> payloadList) {
+                    for (Object item : payloadList) {
+                        if (item instanceof NotificationDTO dto) {
+                            notifications.add(dto);
+                        }
+                    }
+                }
+                List<NotificationDTO> finalList = notifications;
+                Platform.runLater(() -> openNotificationsDialogWith(finalList));
+            } catch (Exception e) {
+                Platform.runLater(() -> openNotificationsDialogWith(java.util.Collections.emptyList()));
+            }
+        }).start();
+    }
+
+    private void openNotificationsDialogWith(List<NotificationDTO> notifications) {
         Dialog<Void> dialog = new Dialog<>();
         dialog.setTitle("Notifications");
-        dialog.setHeaderText("🔔 Your Notifications");
+        dialog.setHeaderText(null);
+        dialog.getDialogPane().setGraphic(null);
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
         dialog.getDialogPane().setPrefSize(500, 400);
 
-        // Create content VBox
         VBox content = new VBox(10);
         content.setPadding(new Insets(15));
         content.setStyle("-fx-background-color: #f8f9fa;");
 
-        Label loadingLabel = new Label("Loading notifications...");
-        loadingLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #666;");
-        content.getChildren().add(loadingLabel);
+        Label titleLabel = new Label("Your Notifications");
+        titleLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+        content.getChildren().add(titleLabel);
+
+        displayNotificationsInto(content, notifications);
+        if (client != null) {
+            try {
+                loadNotificationCount();
+            } catch (Exception ignored) {}
+        }
 
         ScrollPane scrollPane = new ScrollPane(content);
         scrollPane.setFitToWidth(true);
         scrollPane.setPrefViewportHeight(300);
         dialog.getDialogPane().setContent(scrollPane);
-
-        // Request notifications from server
-        if (client != null) {
-            try {
-                String token = LoginController.currentSessionToken;
-                Request request = new Request(MessageType.GET_MY_NOTIFICATIONS, null, token);
-                client.sendToServer(request);
-
-                // Store reference to update later
-                pendingNotificationsContent = content;
-            } catch (IOException e) {
-                loadingLabel.setText("Failed to load notifications: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }
-
         dialog.showAndWait();
-        pendingNotificationsContent = null;
     }
 
-    // Temporary storage for notification dialog content
-    private VBox pendingNotificationsContent = null;
+    /** Removes ALL emojis and non-ASCII symbols from notification text (avoids undefined/rectangle glyphs). */
+    private static String stripEmojis(String s) {
+        if (s == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); ) {
+            int cp = Character.codePointAt(s, i);
+            if ((cp >= 32 && cp <= 126) || cp == '\n' || cp == '\r' || cp == '\t') {
+                sb.appendCodePoint(cp);
+            }
+            i += Character.charCount(cp);
+        }
+        return sb.toString();
+    }
 
-    private void displayNotifications(List<NotificationDTO> notifications) {
-        if (pendingNotificationsContent == null)
-            return;
-
-        pendingNotificationsContent.getChildren().clear();
-
+    /** Fills the given content VBox with notification cards (caller must have already added the title). */
+    private void displayNotificationsInto(VBox content, List<NotificationDTO> notifications) {
         if (notifications.isEmpty()) {
-            Label emptyLabel = new Label("📭 No notifications");
+            Label emptyLabel = new Label("No notifications");
             emptyLabel.setStyle("-fx-font-size: 16px; -fx-text-fill: #888;");
-            pendingNotificationsContent.getChildren().add(emptyLabel);
+            content.getChildren().add(emptyLabel);
             return;
         }
 
@@ -595,22 +672,21 @@ public class DashboardScreen implements GCMClient.MessageHandler {
             card.setStyle("-fx-background-color: " + bgColor
                     + "; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #ddd; -fx-border-width: 1;");
 
-            Label titleLabel = new Label((n.isRead() ? "" : "🔵 ") + n.getTitle());
-            titleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+            Label cardTitleLabel = new Label(stripEmojis(n.getTitle() != null ? n.getTitle() : ""));
+            cardTitleLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
 
-            Label bodyLabel = new Label(n.getBody());
+            Label bodyLabel = new Label(stripEmojis(n.getBody() != null ? n.getBody() : ""));
             bodyLabel.setWrapText(true);
             bodyLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: #333;");
 
             String dateStr = n.getCreatedAt() != null
                     ? n.getCreatedAt().toLocalDateTime().format(fmt)
                     : "";
-            Label dateLabel = new Label(dateStr);
+            Label dateLabel = new Label(stripEmojis(dateStr));
             dateLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #888;");
 
-            card.getChildren().addAll(titleLabel, bodyLabel, dateLabel);
+            card.getChildren().addAll(cardTitleLabel, bodyLabel, dateLabel);
 
-            // Add 'Mark as Read' button for unread notifications
             if (!n.isRead()) {
                 Button markReadBtn = new Button("Mark as Read");
                 markReadBtn.setStyle(
@@ -621,27 +697,20 @@ public class DashboardScreen implements GCMClient.MessageHandler {
                             String token = LoginController.currentSessionToken;
                             Request request = new Request(MessageType.MARK_NOTIFICATION_READ, n.getId(), token);
                             client.sendToServer(request);
-
-                            // Visually update the UI inline
                             card.setStyle(
                                     "-fx-background-color: #ffffff; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #ddd; -fx-border-width: 1;");
-                            titleLabel.setText(n.getTitle()); // Remove the blue dot
-                            card.getChildren().remove(markReadBtn); // Hide the button
+                            cardTitleLabel.setText(stripEmojis(n.getTitle() != null ? n.getTitle() : ""));
+                            card.getChildren().remove(markReadBtn);
                             n.setRead(true);
-
-                            // Optimistically decrement badge counter
-                            int currentCount = 0;
                             try {
                                 String countStr = notificationBadge.getText();
-                                if (countStr.equals("9+")) {
-                                    // Just reload it in this edge case
+                                if (countStr != null && countStr.equals("9+")) {
                                     loadNotificationCount();
-                                } else if (!countStr.isEmpty()) {
-                                    currentCount = Integer.parseInt(countStr);
+                                } else if (countStr != null && !countStr.isEmpty()) {
+                                    int currentCount = Integer.parseInt(countStr);
                                     updateNotificationBadge(currentCount - 1);
                                 }
-                            } catch (Exception ex) {
-                            }
+                            } catch (Exception ex) { /* ignore */ }
                         } catch (IOException ex) {
                             ex.printStackTrace();
                         }
@@ -650,7 +719,7 @@ public class DashboardScreen implements GCMClient.MessageHandler {
                 card.getChildren().add(markReadBtn);
             }
 
-            pendingNotificationsContent.getChildren().add(card);
+            content.getChildren().add(card);
         }
     }
 
@@ -721,17 +790,6 @@ public class DashboardScreen implements GCMClient.MessageHandler {
                     return;
                 }
                 if (response.getRequestType() == MessageType.GET_MY_NOTIFICATIONS && response.isOk()) {
-                    if (response.getPayload() instanceof List<?> payloadList) {
-                        List<NotificationDTO> notifications = new ArrayList<>();
-                        for (Object item : payloadList) {
-                            if (item instanceof NotificationDTO notification) {
-                                notifications.add(notification);
-                            }
-                        }
-                        displayNotifications(notifications);
-                    } else {
-                        displayNotifications(java.util.Collections.emptyList());
-                    }
                     loadNotificationCount();
                     return;
                 }

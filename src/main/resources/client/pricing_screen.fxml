@@ -1,17 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.geometry.*?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
-<?import javafx.scene.text.*?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
 <?import javafx.scene.web.WebView?>
-<BorderPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="client.boundary.PricingScreen"
-            stylesheets="@../styles/modern.css">
+
+<BorderPane fx:id="rootPane" style="-fx-background-color: #f5f6fa;" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="client.boundary.PricingScreen" stylesheets="@sidebar.css">
 
     <top>
         <HBox alignment="CENTER_LEFT" spacing="12" style="-fx-background-color: white; -fx-padding: 14 20; -fx-border-color: #e7e7e7; -fx-border-width: 0 0 1 0;">
-            <Button onAction="#handleBack" style="-fx-background-color: transparent; -fx-text-fill: #111111; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;" text="← Back" />
+            <Button onAction="#handleBack" style="-fx-background-color: transparent; -fx-text-fill: #7f8c8d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;" text="← Back" />
             <Button onAction="#toggleGuestDashboard" style="-fx-background-color: #d5ed9f; -fx-text-fill: #00712d; -fx-font-family: 'Segoe UI', 'Trebuchet MS', sans-serif; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 10; -fx-padding: 6 14; -fx-cursor: hand;" text="Menu" />
             <Region HBox.hgrow="ALWAYS" />
             <HBox alignment="CENTER_RIGHT" spacing="8">
@@ -24,85 +29,77 @@
     <!-- Main Content -->
     <center>
         <HBox spacing="0" style="-fx-background-color: #f5f6fa;">
-            <VBox fx:id="guestDashboardPane" managed="false" maxWidth="260" prefWidth="260" spacing="0" style="-fx-background-color: white; -fx-border-color: #e3e3e3; -fx-border-width: 0 1 0 0;" visible="false">
+            <VBox fx:id="guestDashboardPane" managed="false" minWidth="260" maxWidth="260" prefWidth="260" spacing="0" style="-fx-background-color: white; -fx-border-color: #e3e3e3; -fx-border-width: 0 1 0 0;" visible="false">
                 <VBox spacing="0" style="-fx-padding: 8 0;">
-                    <Button text="Browse Catalog" onAction="#openSearchScreenFromAction" maxWidth="1.7976931348623157E308" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
-                    <Button fx:id="mapEditorNavBtn" text="Map Editor" onAction="#openMapEditorFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
-                    <Button fx:id="myPurchasesNavBtn" text="My Purchases" onAction="#openMyPurchasesFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
-                    <Button fx:id="profileNavBtn" text="My Profile" onAction="#openProfileFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
-                    <Button fx:id="customersNavBtn" text="Customers" onAction="#openAdminCustomersFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
-                    <Button fx:id="pricingNavBtn" text="Pricing" onAction="#openPricingFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
-                    <Button fx:id="pricingApprovalNavBtn" text="Approve Prices" onAction="#openPricingApprovalFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
-                    <Button fx:id="supportNavBtn" text="Support" onAction="#openSupportFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
-                    <Button fx:id="agentConsoleNavBtn" text="Agent Console" onAction="#openAgentConsoleFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
-                    <Button fx:id="editApprovalsNavBtn" text="Edit Approvals" onAction="#openEditApprovalsFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
-                    <Button fx:id="reportsNavBtn" text="City Reports" onAction="#openReportsFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
-                    <Button fx:id="userManagementNavBtn" text="User Management" onAction="#openUserManagementFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false" style="-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;"/>
+                    <Button maxWidth="1.7976931348623157E308" onAction="#openSearchScreenFromAction" styleClass="sidebar-nav-btn" text="Browse Catalog" />
+                    <Button fx:id="mapEditorNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openMapEditorFromMenu" styleClass="sidebar-nav-btn" text="Map Editor" visible="false" />
+                    <Button fx:id="myPurchasesNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openMyPurchasesFromMenu" styleClass="sidebar-nav-btn" text="My Purchases" visible="false" />
+                    <Button fx:id="profileNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openProfileFromMenu" styleClass="sidebar-nav-btn" text="My Profile" visible="false" />
+                    <Button fx:id="customersNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openAdminCustomersFromMenu" styleClass="sidebar-nav-btn" text="Customers" visible="false" />
+                    <Button fx:id="pricingNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openPricingFromMenu" styleClass="sidebar-nav-btn" text="Pricing" visible="false" />
+                    <Button fx:id="pricingApprovalNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openPricingApprovalFromMenu" styleClass="sidebar-nav-btn" text="Approve Prices" visible="false" />
+                    <Button fx:id="supportNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openSupportFromMenu" styleClass="sidebar-nav-btn" text="Support" visible="false" />
+                    <Button fx:id="agentConsoleNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openAgentConsoleFromMenu" styleClass="sidebar-nav-btn" text="Agent Console" visible="false" />
+                    <Button fx:id="editApprovalsNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openEditApprovalsFromMenu" styleClass="sidebar-nav-btn" text="Edit Approvals" visible="false" />
+                    <Button fx:id="reportsNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openReportsFromMenu" styleClass="sidebar-nav-btn" text="City Reports" visible="false" />
+                    <Button fx:id="userManagementNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openUserManagementFromMenu" styleClass="sidebar-nav-btn" text="User Management" visible="false" />
                 </VBox>
             </VBox>
             <HBox spacing="20" style="-fx-padding: 20;" HBox.hgrow="ALWAYS">
             
             <!-- Left: City Prices Table -->
-            <VBox spacing="15" HBox.hgrow="ALWAYS" style="-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 20; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);">
+            <VBox spacing="15" style="-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 20; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);" HBox.hgrow="ALWAYS">
                 <HBox alignment="CENTER_LEFT" spacing="10">
-                    <Label text="📋 Current City Prices" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2d3436;"/>
-                    <Region HBox.hgrow="ALWAYS"/>
-                    <Label fx:id="statusLabel" text="Ready" style="-fx-text-fill: #7f8c8d; -fx-font-size: 11px;"/>
+                    <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2d3436;" text="📋 Current City Prices" />
+                    <Region HBox.hgrow="ALWAYS" />
+                    <Label fx:id="statusLabel" style="-fx-text-fill: #7f8c8d; -fx-font-size: 11px;" text="Ready" />
                 </HBox>
                 
-                <TableView fx:id="pricesTable" VBox.vgrow="ALWAYS" style="-fx-background-radius: 8;">
+                <TableView fx:id="pricesTable" style="-fx-background-radius: 8;" VBox.vgrow="ALWAYS">
                     <columns>
-                        <TableColumn fx:id="cityIdCol" text="ID" prefWidth="50"/>
-                        <TableColumn fx:id="cityNameCol" text="City Name" prefWidth="180"/>
-                        <TableColumn fx:id="currentPriceCol" text="Current Price" prefWidth="120"/>
+                        <TableColumn fx:id="cityIdCol" prefWidth="50" text="ID" />
+                        <TableColumn fx:id="cityNameCol" prefWidth="180" text="City Name" />
+                        <TableColumn fx:id="currentPriceCol" prefWidth="120" text="Current Price" />
                     </columns>
                     <placeholder>
-                        <Label text="Loading prices..." style="-fx-text-fill: #95a5a6;"/>
+                        <Label style="-fx-text-fill: #95a5a6;" text="Loading prices..." />
                     </placeholder>
                 </TableView>
                 
-                <Button text="🔄 Refresh Prices" onAction="#refreshPrices"
-                        style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 10 20; -fx-background-radius: 8; -fx-cursor: hand;"/>
+                <Button onAction="#refreshPrices" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 10 20; -fx-background-radius: 8; -fx-cursor: hand;" text="🔄 Refresh Prices" />
             </VBox>
 
             <!-- Right: Propose New Price Form -->
-            <VBox spacing="20" prefWidth="400" style="-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 20; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);">
-                <Label text="📝 Propose Price Change" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2d3436;"/>
+            <VBox prefWidth="400" spacing="20" style="-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 20; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);">
+                <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2d3436;" text="📝 Propose Price Change" />
                 
                 <!-- Selected City Info -->
                 <VBox spacing="8" style="-fx-background-color: #f8f9fa; -fx-background-radius: 8; -fx-padding: 15;">
-                    <Label text="Selected City:" style="-fx-text-fill: #7f8c8d; -fx-font-size: 12px;"/>
-                    <Label fx:id="selectedCityLabel" text="(Select a city from the table)" 
-                           style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #2d3436;"/>
-                    <HBox spacing="10" alignment="CENTER_LEFT">
-                        <Label text="Current Price:" style="-fx-text-fill: #7f8c8d;"/>
-                        <Label fx:id="currentPriceLabel" text="₪0.00" 
-                               style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #27ae60;"/>
+                    <Label style="-fx-text-fill: #7f8c8d; -fx-font-size: 12px;" text="Selected City:" />
+                    <Label fx:id="selectedCityLabel" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #2d3436;" text="(Select a city from the table)" />
+                    <HBox alignment="CENTER_LEFT" spacing="10">
+                        <Label style="-fx-text-fill: #7f8c8d;" text="Current Price:" />
+                        <Label fx:id="currentPriceLabel" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #27ae60;" text="₪0.00" />
                     </HBox>
                 </VBox>
 
                 <!-- New Price Input -->
                 <VBox spacing="8">
-                    <Label text="Proposed New Price (₪):" style="-fx-text-fill: #2d3436; -fx-font-weight: bold;"/>
-                    <TextField fx:id="newPriceField" promptText="Enter new price (e.g., 199.99)"
-                               style="-fx-padding: 12; -fx-background-radius: 8; -fx-font-size: 16px;"/>
-                    <Label fx:id="priceChangeLabel" text="" style="-fx-font-size: 12px;"/>
+                    <Label style="-fx-text-fill: #2d3436; -fx-font-weight: bold;" text="Proposed New Price (₪):" />
+                    <TextField fx:id="newPriceField" promptText="Enter new price (e.g., 199.99)" style="-fx-padding: 12; -fx-background-radius: 8; -fx-font-size: 16px;" />
+                    <Label fx:id="priceChangeLabel" style="-fx-font-size: 12px;" text="" />
                 </VBox>
 
                 <!-- Reason Input -->
                 <VBox spacing="8" VBox.vgrow="ALWAYS">
-                    <Label text="Reason for Change:" style="-fx-text-fill: #2d3436; -fx-font-weight: bold;"/>
-                    <TextArea fx:id="reasonField" promptText="Explain why this price change is needed (min 10 characters)..."
-                              VBox.vgrow="ALWAYS" wrapText="true"
-                              style="-fx-padding: 12; -fx-background-radius: 8;"/>
+                    <Label style="-fx-text-fill: #2d3436; -fx-font-weight: bold;" text="Reason for Change:" />
+                    <TextArea fx:id="reasonField" promptText="Explain why this price change is needed (min 10 characters)..." style="-fx-padding: 12; -fx-background-radius: 8;" wrapText="true" VBox.vgrow="ALWAYS" />
                 </VBox>
 
                 <!-- Submit Button -->
-                <Button fx:id="submitBtn" text="📤 Submit Pricing Request" onAction="#handleSubmit"
-                        prefWidth="Infinity"
-                        style="-fx-background-color: linear-gradient(to right, #667eea, #764ba2); -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 15; -fx-background-radius: 8; -fx-cursor: hand;"/>
+                <Button fx:id="submitBtn" onAction="#handleSubmit" prefWidth="Infinity" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 15; -fx-background-radius: 8; -fx-cursor: hand;" text="📤 Submit Pricing Request" />
                 
-                <Label fx:id="errorLabel" text="" style="-fx-text-fill: #e74c3c; -fx-font-size: 12px;" wrapText="true"/>
+                <Label fx:id="errorLabel" style="-fx-text-fill: #e74c3c; -fx-font-size: 12px;" text="" wrapText="true" />
             </VBox>
             </HBox>
         </HBox>
@@ -111,9 +108,9 @@
     <!-- Footer: Pending Requests -->
     <bottom>
         <VBox spacing="10" style="-fx-background-color: white; -fx-padding: 15; -fx-border-color: #ecf0f1; -fx-border-width: 1 0 0 0;">
-            <Label text="📊 My Pending Requests" style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #2d3436;"/>
+            <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #2d3436;" text="📊 My Pending Requests" />
             <HBox fx:id="pendingRequestsBox" spacing="10">
-                <Label text="No pending requests" style="-fx-text-fill: #95a5a6; -fx-font-style: italic;"/>
+                <Label style="-fx-text-fill: #95a5a6; -fx-font-style: italic;" text="No pending requests" />
             </HBox>
         </VBox>
     </bottom>

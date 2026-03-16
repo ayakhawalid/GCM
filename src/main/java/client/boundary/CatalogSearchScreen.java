@@ -351,7 +351,6 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
     @FXML private void openEditApprovalsFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToEditApprovals(guestDashboardPane); }
     @FXML private void openReportsFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToReports(guestDashboardPane); }
     @FXML private void openUserManagementFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToUserManagement(guestDashboardPane); }
-
     @FXML
     private void handleGuestNavHoverEnter(MouseEvent event) {
         if (event.getSource() instanceof Button button) {

@@ -336,7 +336,6 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
     @FXML private void openEditApprovalsFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToEditApprovals(guestDashboardPane); }
     @FXML private void openReportsFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToReports(guestDashboardPane); }
     @FXML private void openUserManagementFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToUserManagement(guestDashboardPane); }
-
     private void navigateTo(String fxml, String title, int width, int height) {
         try {
             // Do NOT close connection - singleton persistent session

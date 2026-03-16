@@ -157,7 +157,6 @@ public class ProfileScreen implements GCMClient.MessageHandler {
     @FXML private void openEditApprovalsFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToEditApprovals(guestDashboardPane); }
     @FXML private void openReportsFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToReports(guestDashboardPane); }
     @FXML private void openUserManagementFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToUserManagement(guestDashboardPane); }
-
     private void setupTable() {
         cityCol.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().cityName));
         typeCol.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().type));

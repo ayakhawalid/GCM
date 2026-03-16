@@ -1,5 +1,6 @@
 package client.boundary;
 
+import client.LoginController;
 import client.MenuNavigationHelper;
 import client.control.ContentManagementControl;
 import common.Poi;
@@ -533,5 +534,4 @@ public class MapApprovalsScreen implements ContentManagementControl.ContentCallb
     @FXML private void openEditApprovalsFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToEditApprovals(guestDashboardPane); }
     @FXML private void openReportsFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToReports(guestDashboardPane); }
     @FXML private void openUserManagementFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToUserManagement(guestDashboardPane); }
-
 }

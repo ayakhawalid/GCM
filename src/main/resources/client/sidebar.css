@@ -1,0 +1,14 @@
+/* Sidebar nav buttons: full width, hover background */
+.sidebar-nav-btn {
+    -fx-max-width: infinity;
+    -fx-background-color: white;
+    -fx-text-fill: #00712d;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+    -fx-padding: 10 14;
+    -fx-cursor: hand;
+    -fx-alignment: center-left;
+}
+.sidebar-nav-btn:hover {
+    -fx-background-color: #d5ed9f;
+}

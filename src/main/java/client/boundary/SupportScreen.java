@@ -1,6 +1,7 @@
 package client.boundary;
 
 import client.GCMClient;
+import client.LoginController;
 import client.MenuNavigationHelper;
 import common.MessageType;
 import common.Request;
@@ -47,7 +48,6 @@ public class SupportScreen {
     @FXML private Button editApprovalsNavBtn;
     @FXML private Button reportsNavBtn;
     @FXML private Button userManagementNavBtn;
-
     private static final String NAVBAR_LOGO_SVG_RESOURCE = "/client/assets/favicon.svg";
 
     @FXML
@@ -76,6 +76,20 @@ public class SupportScreen {
     private SupportTicketDTO selectedTicket;
     private SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, HH:mm");
 
+    /** Removes emoji and symbol characters from support text. */
+    private static String stripEmojis(String s) {
+        if (s == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); ) {
+            int cp = Character.codePointAt(s, i);
+            boolean isEmoji = (cp >= 0x2600 && cp <= 0x26FF) || (cp >= 0x2700 && cp <= 0x27BF)
+                    || (cp >= 0x1F300 && cp <= 0x1F9FF);
+            if (!isEmoji) sb.appendCodePoint(cp);
+            i += Character.charCount(cp);
+        }
+        return sb.toString();
+    }
+
     @FXML
     public void initialize() {
         applyNavbarLogoSvg();
@@ -88,21 +102,22 @@ public class SupportScreen {
                 if (empty || ticket == null) {
                     setText(null);
                     setGraphic(null);
+                    setStyle("-fx-background-color: white;");
                 } else {
+                    setStyle("-fx-background-color: white;");
                     VBox cell = new VBox(5);
                     cell.setPadding(new Insets(10));
-                    cell.setStyle("-fx-background-color: #d5ed9f; -fx-background-radius: 10;");
+                    cell.setStyle("-fx-background-color: transparent; -fx-background-radius: 10;");
 
-                    Label subject = new Label(ticket.getSubject());
+                    Label subject = new Label(stripEmojis(ticket.getSubject() != null ? ticket.getSubject() : ""));
                     subject.setStyle("-fx-text-fill: #2c3e50; -fx-font-size: 13px; -fx-font-weight: bold;");
 
-                    Label status = new Label(ticket.getStatusDisplay() + " • " +
+                    Label status = new Label(stripEmojis(ticket.getStatusDisplay()) + " - " +
                             dateFormat.format(ticket.getCreatedAt()));
                     status.setStyle("-fx-text-fill: #555; -fx-font-size: 11px;");
 
                     cell.getChildren().addAll(subject, status);
                     setGraphic(cell);
-                    setStyle("-fx-background-color: transparent;");
                 }
             }
         });
@@ -204,41 +219,44 @@ public class SupportScreen {
         bubble.setPadding(new Insets(10, 15, 10, 15));
         bubble.setMaxWidth(500);
 
-        // Style based on sender type
-        String bgColor, textColor, alignment;
+        // Style based on sender type: bot = transparent + black; agent/customer = slight gray + black
+        String bgStyle;
+        String textColor = "black";
+        String alignment;
+        String timeColor;
         switch (msg.getSenderType()) {
-            case CUSTOMER:
-                bgColor = "#00b894";
-                textColor = "white";
-                alignment = "CENTER_RIGHT";
-                break;
             case BOT:
-                bgColor = "#3498db";
-                textColor = "white";
+                bgStyle = "-fx-background-color: transparent;";
                 alignment = "CENTER_LEFT";
+                timeColor = "#666666";
+                break;
+            case CUSTOMER:
+                bgStyle = "-fx-background-color: #F2F2F2;";
+                alignment = "CENTER_RIGHT";
+                timeColor = "#666666";
                 break;
             case AGENT:
-                bgColor = "#9b59b6";
-                textColor = "white";
+                bgStyle = "-fx-background-color: #F2F2F2;";
                 alignment = "CENTER_LEFT";
+                timeColor = "#666666";
                 break;
             default:
-                bgColor = "#333";
-                textColor = "white";
+                bgStyle = "-fx-background-color: #F2F2F2;";
                 alignment = "CENTER_LEFT";
+                timeColor = "#666666";
         }
 
-        bubble.setStyle("-fx-background-color: " + bgColor + "; -fx-background-radius: 15;");
+        bubble.setStyle(bgStyle + " -fx-background-radius: 15;");
 
-        Label senderLabel = new Label(msg.getSenderDisplay());
-        senderLabel.setStyle("-fx-text-fill: " + textColor + "; -fx-font-size: 10px; -fx-font-weight: bold;");
+        Label senderLabel = new Label(stripEmojis(msg.getSenderDisplay() != null ? msg.getSenderDisplay() : ""));
+        senderLabel.setStyle("-fx-text-fill: " + textColor + "; -fx-font-size: 13px; -fx-font-weight: bold;");
 
-        Label messageLabel = new Label(msg.getMessage());
+        Label messageLabel = new Label(stripEmojis(msg.getMessage() != null ? msg.getMessage() : ""));
         messageLabel.setWrapText(true);
-        messageLabel.setStyle("-fx-text-fill: " + textColor + "; -fx-font-size: 13px;");
+        messageLabel.setStyle("-fx-text-fill: " + textColor + "; -fx-font-size: 16px;");
 
         Label timeLabel = new Label(dateFormat.format(msg.getCreatedAt()));
-        timeLabel.setStyle("-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 9px;");
+        timeLabel.setStyle("-fx-text-fill: " + timeColor + "; -fx-font-size: 11px;");
 
         bubble.getChildren().addAll(senderLabel, messageLabel, timeLabel);
 
@@ -529,7 +547,6 @@ public class SupportScreen {
     @FXML private void openEditApprovalsFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToEditApprovals(guestDashboardPane); }
     @FXML private void openReportsFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToReports(guestDashboardPane); }
     @FXML private void openUserManagementFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToUserManagement(guestDashboardPane); }
-
     @FXML
     private void goBack() {
         try {

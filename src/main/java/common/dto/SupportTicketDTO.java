@@ -140,13 +140,13 @@ public class SupportTicketDTO implements Serializable {
     public String getStatusDisplay() {
         switch (status) {
             case OPEN:
-                return "🔵 Open";
+                return "Open";
             case BOT_RESPONDED:
-                return "🤖 Bot Responded";
+                return "Bot Responded";
             case ESCALATED:
-                return "🟠 Escalated";
+                return "Escalated";
             case CLOSED:
-                return "✅ Closed";
+                return "Closed";
             default:
                 return status.name();
         }

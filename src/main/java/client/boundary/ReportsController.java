@@ -1,6 +1,7 @@
 package client.boundary;
 
 import client.GCMClient;
+import client.LoginController;
 import client.MenuNavigationHelper;
 import common.DailyStat;
 import common.MessageType;
@@ -702,5 +703,4 @@ public class ReportsController implements GCMClient.MessageHandler {
     @FXML private void openEditApprovalsFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToEditApprovals(guestDashboardPane); }
     @FXML private void openReportsFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToReports(guestDashboardPane); }
     @FXML private void openUserManagementFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToUserManagement(guestDashboardPane); }
-
 }
