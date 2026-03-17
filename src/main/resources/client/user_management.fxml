@@ -16,13 +16,13 @@
     <!-- Header -->
     <top>
         <HBox alignment="CENTER_LEFT" spacing="12" style="-fx-background-color: white; -fx-padding: 14 20; -fx-border-color: #e7e7e7; -fx-border-width: 0 0 1 0;">
-            <Button onAction="#handleBack" style="-fx-background-color: transparent; -fx-text-fill: #7f8c8d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;" text="← Back" />
+            <Button onAction="#handleBack" onMouseEntered="#handleBackHoverEnter" onMouseExited="#handleBackHoverExit" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #7f8c8d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;" text="← Back" />
             <Button onAction="#toggleGuestDashboard" style="-fx-background-color: #d5ed9f; -fx-text-fill: #00712d; -fx-font-family: 'Segoe UI', 'Trebuchet MS', sans-serif; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 10; -fx-padding: 6 14; -fx-cursor: hand;" text="Menu" />
             <Label fx:id="welcomeLabel" style="-fx-background-color: transparent; -fx-text-fill: black; -fx-font-size: 14px;" />
             <Region HBox.hgrow="ALWAYS" />
-            <HBox alignment="CENTER_RIGHT" spacing="8">
+            <HBox alignment="CENTER_RIGHT" spacing="5">
                 <WebView fx:id="navbarLogoView1" contextMenuEnabled="false" maxHeight="30" maxWidth="30" minHeight="30" minWidth="30" prefHeight="30" prefWidth="30" />
-                <Label style="-fx-text-fill: black; -fx-font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; -fx-font-size: 24px; -fx-font-weight: bold;" text="Global City Map" />
+                <Button onAction="#navigateToHome" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: black; -fx-font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; -fx-font-size: 24px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 0 2 0 2;" text="Global City Map" />
             </HBox>
         </HBox>
     </top>
@@ -31,7 +31,7 @@
     <center>
         <HBox spacing="0">
             <VBox fx:id="guestDashboardPane" managed="false" maxWidth="260" prefWidth="260" spacing="0" style="-fx-background-color: white; -fx-border-color: #e3e3e3; -fx-border-width: 0 1 0 0;" visible="false">
-                <VBox spacing="0" style="-fx-padding: 8 0;">
+                <VBox spacing="0" style="-fx-padding: 0;">
                     <Button maxWidth="1.7976931348623157E308" onAction="#openSearchScreenFromAction" styleClass="sidebar-nav-btn" text="Browse Catalog" />
                     <Button fx:id="mapEditorNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openMapEditorFromMenu" styleClass="sidebar-nav-btn" text="Map Editor" visible="false" />
                     <Button fx:id="myPurchasesNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openMyPurchasesFromMenu" styleClass="sidebar-nav-btn" text="My Purchases" visible="false" />

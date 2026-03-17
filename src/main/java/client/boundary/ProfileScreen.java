@@ -23,6 +23,8 @@ import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
@@ -31,6 +33,8 @@ import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.paint.Color;
 
 import javafx.scene.layout.VBox;
 import javafx.scene.web.WebView;
@@ -41,6 +45,10 @@ import javafx.stage.Stage;
  * Allows customers to view/edit their profile and see purchase history.
  */
 public class ProfileScreen implements GCMClient.MessageHandler {
+    private static final String BACK_BTN_BASE_STYLE =
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #7f8c8d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 6 10; -fx-background-radius: 10;";
+    private static final String BACK_BTN_HOVER_STYLE =
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #111111; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 6 10; -fx-background-radius: 10;";
 
     // FXML Elements - Profile
     @FXML
@@ -65,6 +73,8 @@ public class ProfileScreen implements GCMClient.MessageHandler {
     private Label userInfoLabel;
     @FXML
     private WebView navbarLogoView1;
+    @FXML
+    private WebView profileAvatarView;
     @FXML
     private VBox guestDashboardPane;
     @FXML private Button mapEditorNavBtn;
@@ -100,8 +110,6 @@ public class ProfileScreen implements GCMClient.MessageHandler {
     private TableColumn<PurchaseRow, String> statusCol;
     @FXML
     private TableColumn<PurchaseRow, String> expiryCol;
-    @FXML
-    private TableColumn<PurchaseRow, String> actionCol;
 
     private GCMClient gcmClient;
     private ObservableList<PurchaseRow> purchaseRows = FXCollections.observableArrayList();
@@ -111,11 +119,13 @@ public class ProfileScreen implements GCMClient.MessageHandler {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("MMM dd, yyyy");
 
     private static final String NAVBAR_LOGO_SVG_RESOURCE = "/client/assets/favicon.svg";
+    private static final String PROFILE_AVATAR_SVG_RESOURCE = "/client/assets/profile-avatar.svg";
 
     @FXML
     public void initialize() {
         System.out.println("ProfileScreen: Initializing");
         applyNavbarLogoSvg();
+        applyProfileAvatarSvg();
         MenuNavigationHelper.configureSidebarButtons(mapEditorNavBtn, myPurchasesNavBtn, profileNavBtn, customersNavBtn, pricingNavBtn, pricingApprovalNavBtn, supportNavBtn, agentConsoleNavBtn, editApprovalsNavBtn, reportsNavBtn, userManagementNavBtn);
         setupTable();
         connectAndLoad();
@@ -137,6 +147,30 @@ public class ProfileScreen implements GCMClient.MessageHandler {
         }
     }
 
+    private void applyProfileAvatarSvg() {
+        if (profileAvatarView == null) return;
+        try (java.io.InputStream in = getClass().getResourceAsStream(PROFILE_AVATAR_SVG_RESOURCE)) {
+            if (in == null) {
+                profileAvatarView.setVisible(false);
+                profileAvatarView.setManaged(false);
+                return;
+            }
+            byte[] svgBytes = in.readAllBytes();
+            String base64 = java.util.Base64.getEncoder().encodeToString(svgBytes);
+            String dataUri = "data:image/svg+xml;base64," + base64;
+            String html = "<!DOCTYPE html><html><head><style>"
+                    + "html,body{margin:0;padding:0;overflow:hidden;background:transparent;} "
+                    + "img{width:64px;height:64px;display:block;}"
+                    + "</style></head><body><img src=\"" + dataUri + "\"/></body></html>";
+            profileAvatarView.setPageFill(Color.TRANSPARENT);
+            profileAvatarView.setStyle("-fx-background-color: transparent; -fx-background-insets: 0;");
+            profileAvatarView.getEngine().loadContent(html);
+        } catch (Exception e) {
+            profileAvatarView.setVisible(false);
+            profileAvatarView.setManaged(false);
+        }
+    }
+
     @FXML
     private void toggleGuestDashboard(ActionEvent event) {
         if (guestDashboardPane == null) return;
@@ -145,6 +179,7 @@ public class ProfileScreen implements GCMClient.MessageHandler {
         guestDashboardPane.setManaged(nextVisible);
     }
 
+    @FXML private void navigateToHome(ActionEvent e) { MenuNavigationHelper.navigateToDashboard((Node) e.getSource()); }
     @FXML private void openSearchScreenFromAction(ActionEvent e) { MenuNavigationHelper.navigateToCatalog(guestDashboardPane); }
     @FXML private void openMapEditorFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToMapEditor(guestDashboardPane); }
     @FXML private void openMyPurchasesFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToMyPurchases(guestDashboardPane); }
@@ -164,34 +199,18 @@ public class ProfileScreen implements GCMClient.MessageHandler {
         dateCol.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().date));
         statusCol.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().status));
         expiryCol.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().expiry));
-
-        // Action column with Download button
-        actionCol.setCellFactory(col -> new TableCell<>() {
-            private final Button btn = new Button("📥");
-            {
-                btn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 12px;");
-                btn.setOnAction(e -> {
-                    PurchaseRow row = getTableView().getItems().get(getIndex());
-                    handleDownload(row);
-                });
-            }
-
-            @Override
-            protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty) {
-                    setGraphic(null);
-                } else {
-                    setGraphic(btn);
-                }
-            }
-        });
+        centerTextColumn(cityCol);
+        centerTextColumn(typeCol);
+        centerTextColumn(priceCol);
+        centerTextColumn(dateCol);
+        centerTextColumn(expiryCol);
 
         // Style status column
         statusCol.setCellFactory(col -> new TableCell<>() {
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
+                setAlignment(Pos.CENTER);
                 if (empty || item == null) {
                     setText(null);
                     setStyle("");
@@ -207,6 +226,17 @@ public class ProfileScreen implements GCMClient.MessageHandler {
         });
 
         purchasesTable.setItems(purchaseRows);
+    }
+
+    private void centerTextColumn(TableColumn<PurchaseRow, String> column) {
+        column.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setAlignment(Pos.CENTER);
+                setText(empty ? null : item);
+            }
+        });
     }
 
     private void connectAndLoad() {
@@ -357,18 +387,17 @@ public class ProfileScreen implements GCMClient.MessageHandler {
         navigateTo("/client/dashboard.fxml", "GCM Dashboard", 1000, 700);
     }
 
-    private void handleDownload(PurchaseRow row) {
-        if (gcmClient == null)
-            return;
+    @FXML
+    private void handleBackHoverEnter(MouseEvent event) {
+        if (event.getSource() instanceof Button button) {
+            button.setStyle(BACK_BTN_HOVER_STYLE);
+        }
+    }
 
-        try {
-            String token = LoginController.currentSessionToken;
-            Request request = new Request(MessageType.DOWNLOAD_MAP_VERSION, row.cityId, token);
-            gcmClient.sendToServer(request);
-            showInfo("Download started for " + row.cityName);
-        } catch (IOException e) {
-            showError("Download failed");
-            e.printStackTrace();
+    @FXML
+    private void handleBackHoverExit(MouseEvent event) {
+        if (event.getSource() instanceof Button button) {
+            button.setStyle(BACK_BTN_BASE_STYLE);
         }
     }
 
@@ -488,16 +517,18 @@ public class ProfileScreen implements GCMClient.MessageHandler {
         purchaseRows.clear();
 
         for (common.dto.EntitlementInfo e : entitlements) {
-            String type = e.isSubscription() ? "📅 Subscription" : "🛒 One-time";
+            String type = e.isSubscription() ? "Subscription" : "One-time";
             String expiry = e.getExpiryDate() != null ? e.getExpiryDate().format(DATE_FORMAT) : "-";
             String status = e.isActive() ? "Active" : "Expired";
+            String price = e.getPricePaid() != null ? CURRENCY_FORMAT.format(e.getPricePaid()) : "-";
+            String date = e.getPurchaseDate() != null ? e.getPurchaseDate().format(DATE_FORMAT) : "-";
 
             purchaseRows.add(new PurchaseRow(
                     e.getCityId(),
                     e.getCityName() != null && !e.getCityName().isEmpty() ? e.getCityName() : "City #" + e.getCityId(),
                     type,
-                    "-", // Price not available in EntitlementInfo
-                    "-", // Purchase date not available
+                    price,
+                    date,
                     status,
                     expiry));
         }
@@ -507,7 +538,7 @@ public class ProfileScreen implements GCMClient.MessageHandler {
         purchaseRows.clear();
 
         for (CustomerPurchaseDTO p : purchases) {
-            String type = p.isSubscription() ? "📅 Subscription" : "🛒 One-time";
+            String type = p.isSubscription() ? "Subscription" : "One-time";
             String date = p.getPurchasedAt() != null
                     ? p.getPurchasedAt().toLocalDateTime().format(DATE_FORMAT)
                     : "-";

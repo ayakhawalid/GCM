@@ -1,37 +1,34 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
+<?import javafx.scene.layout.VBox?>
 <?import javafx.scene.web.WebView?>
 
-<BorderPane fx:id="rootPane" xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1"
-            fx:controller="client.boundary.DashboardScreen"
-            style="-fx-background-color: #f5f6fa;" stylesheets="@sidebar.css">
+<BorderPane fx:id="rootPane" style="-fx-background-color: #f5f6fa;" stylesheets="@sidebar.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="client.boundary.DashboardScreen">
 
     <top>
-        <HBox alignment="CENTER_LEFT" spacing="12"
-              style="-fx-background-color: white; -fx-padding: 14 20; -fx-border-color: #e7e7e7; -fx-border-width: 0 0 1 0;">
-            <HBox alignment="CENTER_LEFT" spacing="2">
-                <WebView fx:id="logoutIconView" contextMenuEnabled="false" maxHeight="20" maxWidth="20" minHeight="20" minWidth="20" prefHeight="20" prefWidth="20"/>
-                <Button fx:id="logoutBtn" text="Logout" onAction="#handleLogout"
-                        style="-fx-background-color: transparent; -fx-text-fill: #7f8c8d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;"/>
+        <HBox alignment="CENTER_LEFT" spacing="12" style="-fx-background-color: white; -fx-padding: 14 20; -fx-border-color: #e7e7e7; -fx-border-width: 0 0 1 0;">
+            <HBox alignment="CENTER_LEFT" spacing="1">
+                <WebView fx:id="logoutIconView" contextMenuEnabled="false" maxHeight="20" maxWidth="20" minHeight="20" minWidth="20" prefHeight="20" prefWidth="20" />
+                <Button fx:id="logoutBtn" onAction="#handleLogout" onMouseEntered="#handleLeftNavHoverEnter" onMouseExited="#handleLeftNavHoverExit" onMousePressed="#handleLeftNavMousePressed" onMouseReleased="#handleLeftNavMouseReleased" prefHeight="33.0" prefWidth="64.0" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #7f8c8d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 8 6 0;" text="Logout" />
             </HBox>
-            <Button text="Menu" onAction="#toggleGuestDashboard"
-                    style="-fx-background-color: #d5ed9f; -fx-text-fill: #00712d; -fx-font-family: 'Segoe UI', 'Trebuchet MS', sans-serif; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 10; -fx-padding: 6 14; -fx-cursor: hand;"/>
-            <Label fx:id="welcomeLabel" style="-fx-background-color: transparent; -fx-text-fill: black; -fx-font-size: 14px; -fx-font-weight: bold;"/>
-            <Region HBox.hgrow="ALWAYS"/>
-            <HBox alignment="CENTER" spacing="2" style="-fx-cursor: hand;" onMouseClicked="#openNotifications">
-                <Label text="🔔" style="-fx-font-size: 18px;"/>
-                <Label fx:id="notificationBadge" text=""
-                       style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 9px; -fx-font-weight: bold; -fx-padding: 1 5; -fx-background-radius: 8; -fx-translate-x: -8; -fx-translate-y: -6;"/>
+            <Button onAction="#toggleGuestDashboard" style="-fx-background-color: #d5ed9f; -fx-text-fill: #00712d; -fx-font-family: 'Segoe UI', 'Trebuchet MS', sans-serif; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 10; -fx-padding: 6 14; -fx-cursor: hand;" text="Menu" />
+            <Label fx:id="welcomeLabel" style="-fx-background-color: transparent; -fx-text-fill: black; -fx-font-size: 14px; -fx-font-weight: bold;" />
+            <Region HBox.hgrow="ALWAYS" />
+            <HBox alignment="CENTER" onMouseClicked="#openNotifications" spacing="2" style="-fx-cursor: hand;">
+                <Label style="-fx-font-size: 18px;" text="🔔" />
+                <Label fx:id="notificationBadge" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 9px; -fx-font-weight: bold; -fx-padding: 1 5; -fx-background-radius: 8; -fx-translate-x: -8; -fx-translate-y: -6;" text="" />
             </HBox>
-            <Button text="+" onAction="#zoomInGuestMap"
-                    style="-fx-background-color: #f2f7e7; -fx-text-fill: #00712d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-radius: 8; -fx-padding: 3 12; -fx-cursor: hand; -fx-border-color: transparent;"/>
-            <Button text="-" onAction="#zoomOutGuestMap"
-                    style="-fx-background-color: #f2f7e7; -fx-text-fill: #00712d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-radius: 8; -fx-padding: 3 13; -fx-cursor: hand; -fx-border-color: transparent;"/>
-            <HBox alignment="CENTER_RIGHT" spacing="8">
-                <WebView fx:id="navbarLogoView" prefWidth="30" prefHeight="30" minWidth="30" minHeight="30" maxWidth="30" maxHeight="30" contextMenuEnabled="false"/>
-                <Label text="Global City Map" style="-fx-text-fill: black; -fx-font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; -fx-font-size: 24px; -fx-font-weight: bold;"/>
+            <Button onAction="#zoomInGuestMap" style="-fx-background-color: #f2f7e7; -fx-text-fill: #00712d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-radius: 8; -fx-padding: 3 12; -fx-cursor: hand; -fx-border-color: transparent;" text="+" />
+            <Button onAction="#zoomOutGuestMap" style="-fx-background-color: #f2f7e7; -fx-text-fill: #00712d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-radius: 8; -fx-padding: 3 13; -fx-cursor: hand; -fx-border-color: transparent;" text="-" />
+            <HBox alignment="CENTER_RIGHT" spacing="5">
+                <WebView fx:id="navbarLogoView" contextMenuEnabled="false" maxHeight="30" maxWidth="30" minHeight="30" minWidth="30" prefHeight="30" prefWidth="30" />
+                <Button onAction="#navigateToHome" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: black; -fx-font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; -fx-font-size: 24px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 0 2 0 2;" text="Global City Map" />
             </HBox>
         </HBox>
     </top>
@@ -39,35 +36,33 @@
     <center>
         <HBox spacing="0">
             <!-- Sidebar Menu -->
-            <VBox fx:id="guestDashboardPane" managed="false" minWidth="260" maxWidth="260" prefWidth="260" spacing="0"
-                  style="-fx-background-color: white; -fx-border-color: #e3e3e3; -fx-border-width: 0 1 0 0;"
-                  visible="false">
-                <VBox spacing="0" style="-fx-padding: 8 0;">
-                    <Button fx:id="browseCatalogBtn" styleClass="sidebar-nav-btn" text="Browse Catalog" onAction="#openSearchScreenFromAction" maxWidth="1.7976931348623157E308"/>
-                    <Button fx:id="mapEditorNavBtn" styleClass="sidebar-nav-btn" text="Map Editor" onAction="#openMapEditorFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false"/>
-                    <Button fx:id="myPurchasesNavBtn" styleClass="sidebar-nav-btn" text="My Purchases" onAction="#openMyPurchasesFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false"/>
-                    <Button fx:id="profileNavBtn" styleClass="sidebar-nav-btn" text="My Profile" onAction="#openProfileFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false"/>
-                    <Button fx:id="customersNavBtn" styleClass="sidebar-nav-btn" text="Customers" onAction="#openAdminCustomersFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false"/>
-                    <Button fx:id="pricingNavBtn" styleClass="sidebar-nav-btn" text="Pricing" onAction="#openPricingFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false"/>
-                    <Button fx:id="pricingApprovalNavBtn" styleClass="sidebar-nav-btn" text="Approve Prices" onAction="#openPricingApprovalFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false"/>
-                    <Button fx:id="supportNavBtn" styleClass="sidebar-nav-btn" text="Support" onAction="#openSupportFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false"/>
-                    <Button fx:id="agentConsoleNavBtn" styleClass="sidebar-nav-btn" text="Agent Console" onAction="#openAgentConsoleFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false"/>
-                    <Button fx:id="editApprovalsNavBtn" styleClass="sidebar-nav-btn" text="Edit Approvals" onAction="#openEditApprovalsFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false"/>
-                    <Button fx:id="reportsNavBtn" styleClass="sidebar-nav-btn" text="City Reports" onAction="#openReportsFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false"/>
-                    <Button fx:id="userManagementNavBtn" styleClass="sidebar-nav-btn" text="User Management" onAction="#openUserManagementFromMenu" maxWidth="1.7976931348623157E308" visible="false" managed="false"/>
+            <VBox fx:id="guestDashboardPane" managed="false" maxWidth="260" minWidth="260" prefWidth="260" spacing="0" style="-fx-background-color: white; -fx-border-color: #e3e3e3; -fx-border-width: 0 1 0 0;" visible="false">
+                <VBox spacing="0" style="-fx-padding: 0;">
+                    <Button fx:id="browseCatalogBtn" maxWidth="1.7976931348623157E308" onAction="#openSearchScreenFromAction" styleClass="sidebar-nav-btn" text="Browse Catalog" />
+                    <Button fx:id="mapEditorNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openMapEditorFromMenu" styleClass="sidebar-nav-btn" text="Map Editor" visible="false" />
+                    <Button fx:id="myPurchasesNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openMyPurchasesFromMenu" styleClass="sidebar-nav-btn" text="My Purchases" visible="false" />
+                    <Button fx:id="profileNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openProfileFromMenu" styleClass="sidebar-nav-btn" text="My Profile" visible="false" />
+                    <Button fx:id="customersNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openAdminCustomersFromMenu" styleClass="sidebar-nav-btn" text="Customers" visible="false" />
+                    <Button fx:id="pricingNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openPricingFromMenu" styleClass="sidebar-nav-btn" text="Pricing" visible="false" />
+                    <Button fx:id="pricingApprovalNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openPricingApprovalFromMenu" styleClass="sidebar-nav-btn" text="Approve Prices" visible="false" />
+                    <Button fx:id="supportNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openSupportFromMenu" styleClass="sidebar-nav-btn" text="Support" visible="false" />
+                    <Button fx:id="agentConsoleNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openAgentConsoleFromMenu" styleClass="sidebar-nav-btn" text="Agent Console" visible="false" />
+                    <Button fx:id="editApprovalsNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openEditApprovalsFromMenu" styleClass="sidebar-nav-btn" text="Edit Approvals" visible="false" />
+                    <Button fx:id="reportsNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openReportsFromMenu" styleClass="sidebar-nav-btn" text="City Reports" visible="false" />
+                    <Button fx:id="userManagementNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openUserManagementFromMenu" styleClass="sidebar-nav-btn" text="User Management" visible="false" />
                 </VBox>
             </VBox>
 
             <!-- Map Background -->
-            <AnchorPane fx:id="guestMapAnchorPane" style="-fx-background-color: white;" HBox.hgrow="ALWAYS"/>
+            <AnchorPane fx:id="guestMapAnchorPane" style="-fx-background-color: white;" HBox.hgrow="ALWAYS" />
         </HBox>
     </center>
 
     <bottom>
         <HBox alignment="CENTER" spacing="20" style="-fx-background-color: #ecf0f1; -fx-padding: 10;">
-            <Label text="GCM System v2.0" style="-fx-text-fill: #7f8c8d; -fx-font-size: 11px;"/>
-            <Label text="•" style="-fx-text-fill: #7f8c8d;"/>
-            <Label fx:id="statusLabel" text="Connected to server" style="-fx-text-fill: #27ae60; -fx-font-size: 11px;"/>
+            <Label style="-fx-text-fill: #7f8c8d; -fx-font-size: 11px;" text="GCM System v2.0" />
+            <Label style="-fx-text-fill: #7f8c8d;" text="•" />
+            <Label fx:id="statusLabel" style="-fx-text-fill: #27ae60; -fx-font-size: 11px;" text="Connected to server" />
         </HBox>
     </bottom>
 </BorderPane>

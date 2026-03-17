@@ -8,6 +8,9 @@
     -fx-padding: 10 14;
     -fx-cursor: hand;
     -fx-alignment: center-left;
+    -fx-border-color: #d9dde2;
+    -fx-border-width: 0 0 1 0;
+    -fx-background-insets: 0;
 }
 .sidebar-nav-btn:hover {
     -fx-background-color: #d5ed9f;

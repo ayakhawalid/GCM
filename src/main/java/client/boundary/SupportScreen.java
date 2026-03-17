@@ -15,9 +15,11 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.web.WebView;
@@ -34,6 +36,10 @@ import java.util.Map;
  * Allows creating tickets, viewing responses, and escalating to agents.
  */
 public class SupportScreen {
+    private static final String BACK_BTN_BASE_STYLE =
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #7f8c8d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;";
+    private static final String BACK_BTN_HOVER_STYLE =
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #111111; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;";
 
     @FXML private WebView navbarLogoView1;
     @FXML private VBox guestDashboardPane;
@@ -511,6 +517,16 @@ public class SupportScreen {
         goBack();
     }
 
+    @FXML
+    private void handleBackHoverEnter(MouseEvent event) {
+        if (event.getSource() instanceof Button button) button.setStyle(BACK_BTN_HOVER_STYLE);
+    }
+
+    @FXML
+    private void handleBackHoverExit(MouseEvent event) {
+        if (event.getSource() instanceof Button button) button.setStyle(BACK_BTN_BASE_STYLE);
+    }
+
     private void applyNavbarLogoSvg() {
         if (navbarLogoView1 == null) return;
         java.net.URL svgUrl = getClass().getResource(NAVBAR_LOGO_SVG_RESOURCE);
@@ -535,6 +551,7 @@ public class SupportScreen {
         guestDashboardPane.setManaged(nextVisible);
     }
 
+    @FXML private void navigateToHome(ActionEvent e) { MenuNavigationHelper.navigateToDashboard((Node) e.getSource()); }
     @FXML private void openSearchScreenFromAction(ActionEvent e) { MenuNavigationHelper.navigateToCatalog(guestDashboardPane); }
     @FXML private void openMapEditorFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToMapEditor(guestDashboardPane); }
     @FXML private void openMyPurchasesFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToMyPurchases(guestDashboardPane); }

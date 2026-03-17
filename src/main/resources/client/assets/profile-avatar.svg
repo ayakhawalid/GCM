@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="31" fill="#f8f9fb" stroke="#dfe6e9" stroke-width="2"/>
+  <circle cx="32" cy="23" r="13" fill="#8d99a6"/>
+  <!-- Body a bit smaller and lower; two side curves (left and right) made rounder -->
+  <path d="M10 55c0-8 10-15 20-16h4c10 0 20 8 20 16A31 31 0 0 1 32 63A31 31 0 0 1 10 55Z" fill="#8d99a6"/>
+</svg>

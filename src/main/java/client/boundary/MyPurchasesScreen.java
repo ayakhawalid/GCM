@@ -3,6 +3,9 @@ package client.boundary;
 import client.GCMClient;
 import client.LoginController;
 import client.MenuNavigationHelper;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.gluonhq.maps.MapLayer;
 import com.gluonhq.maps.MapPoint;
 import com.gluonhq.maps.MapView;
@@ -23,10 +26,12 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Point2D;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.ArcTo;
@@ -43,13 +48,21 @@ import javafx.util.Pair;
 
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Controller for My Purchases screen.
  */
 public class MyPurchasesScreen implements GCMClient.MessageHandler {
+    private static final String BACK_BTN_BASE_STYLE =
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #7f8c8d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;";
+    private static final String BACK_BTN_HOVER_STYLE =
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #111111; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;";
 
     @FXML
     private Label statusLabel;
@@ -109,12 +122,16 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
         subCityCol.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().cityName));
         subStatusCol.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().status));
         subExpiryCol.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().dateInfo));
+        centerTextColumn(subCityCol);
+        centerTextColumn(subStatusCol);
+        centerTextColumn(subExpiryCol);
 
         subActionCol.setCellFactory(col -> new TableCell<PurchaseItem, String>() {
             private final javafx.scene.layout.HBox box = new javafx.scene.layout.HBox(5);
             private final Button viewBtn = new Button("View maps");
 
             {
+                box.setAlignment(Pos.CENTER);
                 viewBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white;");
                 viewBtn.setOnAction(e -> {
                     PurchaseItem row = getTableView().getItems().get(getIndex());
@@ -127,6 +144,8 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
+                setAlignment(Pos.CENTER);
+                setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
                 if (empty) {
                     setGraphic(null);
                 } else {
@@ -144,6 +163,8 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
         // Purchases Columns
         purchaseCityCol.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().cityName));
         purchaseDateCol.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().dateInfo));
+        centerTextColumn(purchaseCityCol);
+        centerTextColumn(purchaseDateCol);
 
         purchaseActionCol.setCellFactory(col -> new TableCell<PurchaseItem, String>() {
             private final Button btn = new Button("Download map");
@@ -158,6 +179,8 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
             @Override
             protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
+                setAlignment(Pos.CENTER);
+                setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
                 if (empty) {
                     setGraphic(null);
                 } else {
@@ -173,6 +196,17 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
 
         subscriptionsTable.setItems(subscriptionsList);
         purchasesTable.setItems(purchasesList);
+    }
+
+    private void centerTextColumn(TableColumn<PurchaseItem, String> column) {
+        column.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(String item, boolean empty) {
+                super.updateItem(item, empty);
+                setAlignment(Pos.CENTER);
+                setText(empty ? null : item);
+            }
+        });
     }
 
     private void connectToServer() {
@@ -237,7 +271,16 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
             @Override
             protected void updateItem(MapSummary item, boolean empty) {
                 super.updateItem(item, empty);
-                setText(empty || item == null ? null : "📍 " + item.getName());
+                setText(empty || item == null ? null : item.getName());
+            }
+        });
+        ListView<MapSummary> toursListView = new ListView<>();
+        toursListView.setPrefHeight(150);
+        toursListView.setCellFactory(lv -> new ListCell<MapSummary>() {
+            @Override
+            protected void updateItem(MapSummary item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : item.getName());
             }
         });
 
@@ -248,17 +291,36 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
         mapPane.setMinWidth(400);
         mapPane.setStyle("-fx-background-color: #bdc3c7;");
 
-        Label detailsLabel = new Label("Select a map to view POIs and tours.");
-        detailsLabel.setWrapText(true);
-        detailsLabel.setMaxWidth(280);
-        detailsLabel.setStyle("-fx-text-fill: #2c3e50; -fx-font-size: 13px;");
-
-        VBox leftPanel = new VBox(10, new Label("Maps in " + cityName), mapsListView);
+        Label mapsHeader = new Label("Maps in " + cityName);
+        mapsHeader.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+        Label toursHeader = new Label("Tours");
+        toursHeader.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+        VBox leftPanel = new VBox(10, mapsHeader, mapsListView, new Separator(), toursHeader, toursListView);
         leftPanel.setPadding(new Insets(10));
         leftPanel.setPrefWidth(240);
         leftPanel.setStyle("-fx-background-color: #ecf0f1;");
 
-        VBox rightPanel = new VBox(10, new Label("Details"), detailsLabel);
+        Label poisHeader = new Label("POIs");
+        poisHeader.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+        ListView<String> poisListView = new ListView<>();
+        poisListView.setPrefHeight(200);
+        poisListView.setPlaceholder(new Label("No POIs in this map."));
+        Label cityDescHeader = new Label("City Description");
+        cityDescHeader.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+        Label cityDescValueLabel = new Label("No city description available.");
+        cityDescValueLabel.setWrapText(true);
+        cityDescValueLabel.setStyle("-fx-text-fill: #34495e;");
+
+        Label mapDescHeader = new Label("Map Description");
+        mapDescHeader.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;");
+        Label mapDescValueLabel = new Label("");
+        mapDescValueLabel.setWrapText(true);
+        mapDescValueLabel.setStyle("-fx-text-fill: #34495e;");
+        VBox mapDescSection = new VBox(4, mapDescHeader, mapDescValueLabel);
+        mapDescSection.setVisible(false);
+        mapDescSection.setManaged(false);
+
+        VBox rightPanel = new VBox(10, poisHeader, poisListView, new Separator(), cityDescHeader, cityDescValueLabel, mapDescSection);
         rightPanel.setPadding(new Insets(10));
         rightPanel.setPrefWidth(300);
         rightPanel.setStyle("-fx-background-color: #ecf0f1;");
@@ -272,7 +334,7 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
         BorderPane.setMargin(popupStatusLabel, new Insets(5, 10, 10, 10));
         root.setStyle("-fx-background-color: #f5f6fa;");
 
-        viewerPopup = new MapViewerPopupContext(popupStage, mapsListView, mapPane, popupStatusLabel, detailsLabel, cityId, token);
+        viewerPopup = new MapViewerPopupContext(popupStage, mapsListView, toursListView, poisListView, cityDescValueLabel, mapDescValueLabel, mapDescSection, mapPane, popupStatusLabel, cityName, token);
         popupStage.setScene(new Scene(root));
         popupStage.setOnHidden(e -> {
             if (viewerPopup != null) {
@@ -283,6 +345,13 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
 
         mapsListView.getSelectionModel().selectedItemProperty().addListener((obs, old, selected) -> {
             if (selected != null && viewerPopup != null) {
+                toursListView.getSelectionModel().clearSelection();
+                viewerPopup.requestMapContent(selected.getId());
+            }
+        });
+        toursListView.getSelectionModel().selectedItemProperty().addListener((obs, old, selected) -> {
+            if (selected != null && viewerPopup != null) {
+                mapsListView.getSelectionModel().clearSelection();
                 viewerPopup.requestMapContent(selected.getId());
             }
         });
@@ -298,6 +367,20 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
     @FXML
     private void handleBack(ActionEvent event) {
         navigateTo("/client/dashboard.fxml", "GCM Dashboard", 1000, 700);
+    }
+
+    @FXML
+    private void handleBackHoverEnter(MouseEvent event) {
+        if (event.getSource() instanceof Button button) {
+            button.setStyle(BACK_BTN_HOVER_STYLE);
+        }
+    }
+
+    @FXML
+    private void handleBackHoverExit(MouseEvent event) {
+        if (event.getSource() instanceof Button button) {
+            button.setStyle(BACK_BTN_BASE_STYLE);
+        }
     }
 
     private void applyNavbarLogoSvg() {
@@ -324,6 +407,7 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
         guestDashboardPane.setManaged(nextVisible);
     }
 
+    @FXML private void navigateToHome(ActionEvent e) { MenuNavigationHelper.navigateToDashboard((Node) e.getSource()); }
     @FXML private void openSearchScreenFromAction(ActionEvent e) { MenuNavigationHelper.navigateToCatalog(guestDashboardPane); }
     @FXML private void openMapEditorFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToMapEditor(guestDashboardPane); }
     @FXML private void openMyPurchasesFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToMyPurchases(guestDashboardPane); }
@@ -558,22 +642,33 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
 
     private class MapViewerPopupContext {
         private final ListView<MapSummary> mapsListView;
+        private final ListView<MapSummary> toursListView;
+        private final ListView<String> poisListView;
+        private final Label cityDescriptionLabel;
+        private final Label mapDescriptionLabel;
+        private final VBox mapDescriptionSection;
         private final StackPane mapPane;
         private final Label statusLabel;
-        private final Label detailsLabel;
+        private final String cityName;
         private final String token;
         private MapView mapView;
         private ViewerPoiMarkerLayer poiLayer;
         private ViewerTourRouteLayer tourLayer;
         private static final double FALLBACK_LAT = 32.8;
         private static final double FALLBACK_LNG = 34.99;
+        private static final ConcurrentHashMap<String, double[]> geocodeCache = new ConcurrentHashMap<>();
 
-        MapViewerPopupContext(Stage stage, ListView<MapSummary> mapsListView, StackPane mapPane,
-                Label statusLabel, Label detailsLabel, int cityId, String token) {
+        MapViewerPopupContext(Stage stage, ListView<MapSummary> mapsListView, ListView<MapSummary> toursListView,
+                ListView<String> poisListView, Label cityDescriptionLabel, Label mapDescriptionLabel, VBox mapDescriptionSection, StackPane mapPane, Label statusLabel, String cityName, String token) {
             this.mapsListView = mapsListView;
+            this.toursListView = toursListView;
+            this.poisListView = poisListView;
+            this.cityDescriptionLabel = cityDescriptionLabel;
+            this.mapDescriptionLabel = mapDescriptionLabel;
+            this.mapDescriptionSection = mapDescriptionSection;
             this.mapPane = mapPane;
             this.statusLabel = statusLabel;
-            this.detailsLabel = detailsLabel;
+            this.cityName = cityName;
             this.token = token;
         }
 
@@ -597,9 +692,17 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
 
         void applyMapsList(List<MapSummary> maps) {
             mapsListView.getItems().clear();
+            toursListView.getItems().clear();
             if (maps != null && !maps.isEmpty()) {
-                mapsListView.getItems().addAll(maps);
-                statusLabel.setText(maps.size() + " map(s) – select one to view");
+                for (MapSummary map : maps) {
+                    if (map != null && map.getTourId() != null && map.getTourId() > 0) {
+                        toursListView.getItems().add(map);
+                    } else {
+                        mapsListView.getItems().add(map);
+                    }
+                }
+                int totalCount = mapsListView.getItems().size() + toursListView.getItems().size();
+                statusLabel.setText(totalCount + " map(s) – select one to view");
                 statusLabel.setStyle("-fx-text-fill: #27ae60;");
             } else {
                 statusLabel.setText("No maps in this city.");
@@ -607,7 +710,19 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
             }
             if (poiLayer != null) poiLayer.clearPois();
             if (tourLayer != null) tourLayer.clearSegments();
-            detailsLabel.setText("Select a map to view POIs and tours.");
+            poisListView.getItems().clear();
+            String cityDescFromList = null;
+            if (!mapsListView.getItems().isEmpty()) {
+                cityDescFromList = mapsListView.getItems().get(0).getCityDescription();
+            } else if (!toursListView.getItems().isEmpty()) {
+                cityDescFromList = toursListView.getItems().get(0).getCityDescription();
+            }
+            cityDescriptionLabel.setText(cityDescFromList != null && !cityDescFromList.isBlank()
+                    ? cityDescFromList
+                    : "No city description available.");
+            mapDescriptionLabel.setText("");
+            mapDescriptionSection.setManaged(false);
+            mapDescriptionSection.setVisible(false);
         }
 
         void applyMapContent(MapContent content) {
@@ -615,6 +730,7 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
             ensureMapViewCreated();
             poiLayer.clearPois();
             tourLayer.clearSegments();
+            poisListView.getItems().clear();
 
             double centerLat = FALLBACK_LAT;
             double centerLng = FALLBACK_LNG;
@@ -625,6 +741,8 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
                     double lng = p.getLongitude() != null ? p.getLongitude() : parseLatLon(p.getLocation(), false);
                     if (!Double.isNaN(lat) && !Double.isNaN(lng)) {
                         poiLayer.addPoi(p);
+                        String poiName = p.getName() != null && !p.getName().isBlank() ? p.getName() : "POI";
+                        poisListView.getItems().add(poiName);
                         if (centerLat == FALLBACK_LAT) {
                             centerLat = lat;
                             centerLng = lng;
@@ -635,19 +753,73 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
             List<TourSegmentDTO> segs = content.getTourSegments();
             if (segs != null && !segs.isEmpty()) {
                 tourLayer.setSegments(segs);
+                if (centerLat == FALLBACK_LAT) {
+                    TourSegmentDTO first = segs.get(0);
+                    if (first.getFromLat() != null && first.getFromLon() != null) {
+                        centerLat = first.getFromLat();
+                        centerLng = first.getFromLon();
+                    }
+                }
             }
-            mapView.flyTo(0, new MapPoint(centerLat, centerLng), 0.2);
-
-            StringBuilder details = new StringBuilder();
-            details.append(content.getMapName()).append("\n");
-            details.append(pois != null ? pois.size() : 0).append(" POI(s)");
-            if (content.getTours() != null && !content.getTours().isEmpty()) {
-                details.append(", ").append(content.getTours().size()).append(" tour(s)");
+            if (centerLat == FALLBACK_LAT && cityName != null && !cityName.isBlank()) {
+                resolveCityCenter(cityName, coords -> {
+                    double lat = coords != null ? coords[0] : FALLBACK_LAT;
+                    double lon = coords != null ? coords[1] : FALLBACK_LNG;
+                    mapView.flyTo(0, new MapPoint(lat, lon), 0.2);
+                });
+            } else {
+                mapView.flyTo(0, new MapPoint(centerLat, centerLng), 0.2);
             }
-            details.append(".");
-            detailsLabel.setText(details.toString());
             statusLabel.setText("Viewing: " + content.getMapName());
             statusLabel.setStyle("-fx-text-fill: #27ae60;");
+            String cityDesc = content.getCityDescription();
+            cityDescriptionLabel.setText(cityDesc != null && !cityDesc.isBlank() ? cityDesc : "No city description available.");
+            String mapDesc = content.getShortDescription();
+            mapDescriptionLabel.setText(mapDesc != null && !mapDesc.isBlank() ? mapDesc : "No map description available.");
+            mapDescriptionSection.setManaged(true);
+            mapDescriptionSection.setVisible(true);
+        }
+
+        private void resolveCityCenter(String city, java.util.function.Consumer<double[]> onResult) {
+            String key = city.toLowerCase().trim();
+            double[] cached = geocodeCache.get(key);
+            if (cached != null) {
+                onResult.accept(cached);
+                return;
+            }
+            new Thread(() -> {
+                try {
+                    String encoded = URLEncoder.encode(city, StandardCharsets.UTF_8);
+                    URI uri = URI.create("https://nominatim.openstreetmap.org/search?q=" + encoded + "&format=json&limit=1");
+                    java.net.http.HttpClient http = java.net.http.HttpClient.newBuilder()
+                            .connectTimeout(java.time.Duration.ofSeconds(7))
+                            .build();
+                    java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder()
+                            .uri(uri)
+                            .header("User-Agent", "GCM-System/1.0 (Java)")
+                            .GET()
+                            .build();
+                    java.net.http.HttpResponse<String> res = http.send(req,
+                            java.net.http.HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                    if (res.statusCode() != 200) {
+                        Platform.runLater(() -> onResult.accept(null));
+                        return;
+                    }
+                    JsonArray arr = new Gson().fromJson(res.body(), JsonArray.class);
+                    if (arr == null || arr.isEmpty()) {
+                        Platform.runLater(() -> onResult.accept(null));
+                        return;
+                    }
+                    JsonObject first = arr.get(0).getAsJsonObject();
+                    double lat = Double.parseDouble(first.get("lat").getAsString());
+                    double lon = Double.parseDouble(first.get("lon").getAsString());
+                    double[] coords = new double[] { lat, lon };
+                    geocodeCache.put(key, coords);
+                    Platform.runLater(() -> onResult.accept(coords));
+                } catch (Exception e) {
+                    Platform.runLater(() -> onResult.accept(null));
+                }
+            }, "MyPurchases-Geocode-" + key).start();
         }
 
         void requestMapContent(int mapId) {
@@ -665,6 +837,12 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
             if (tourLayer != null) tourLayer.clearSegments();
             mapPane.getChildren().clear();
             mapsListView.getItems().clear();
+            toursListView.getItems().clear();
+            poisListView.getItems().clear();
+            cityDescriptionLabel.setText("");
+            mapDescriptionLabel.setText("");
+            mapDescriptionSection.setManaged(false);
+            mapDescriptionSection.setVisible(false);
             mapView = null;
             poiLayer = null;
             tourLayer = null;

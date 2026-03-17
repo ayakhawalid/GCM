@@ -60,6 +60,10 @@ import java.util.function.BiConsumer;
  * Handles all map editing operations including POIs and Tours.
  */
 public class MapEditorScreen implements ContentManagementControl.ContentCallback {
+    private static final String BACK_BTN_BASE_STYLE =
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #7f8c8d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;";
+    private static final String BACK_BTN_HOVER_STYLE =
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #111111; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;";
 
     @FXML
     private Label statusLabel;
@@ -2181,6 +2185,16 @@ dialog.getDialogPane().setContent(content);
         }
     }
 
+    @FXML
+    private void handleBackHoverEnter(MouseEvent event) {
+        if (event.getSource() instanceof Button button) button.setStyle(BACK_BTN_HOVER_STYLE);
+    }
+
+    @FXML
+    private void handleBackHoverExit(MouseEvent event) {
+        if (event.getSource() instanceof Button button) button.setStyle(BACK_BTN_BASE_STYLE);
+    }
+
     // ==================== Callbacks ====================
 
     @Override
@@ -2568,6 +2582,7 @@ dialog.getDialogPane().setContent(content);
         guestDashboardPane.setManaged(nextVisible);
     }
 
+    @FXML private void navigateToHome(ActionEvent e) { MenuNavigationHelper.navigateToDashboard((Node) e.getSource()); }
     @FXML private void openSearchScreenFromAction(ActionEvent e) { MenuNavigationHelper.navigateToCatalog(guestDashboardPane); }
     @FXML private void openMapEditorFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToMapEditor(guestDashboardPane); }
     @FXML private void openMyPurchasesFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToMyPurchases(guestDashboardPane); }

@@ -12,6 +12,7 @@ public class MapSummary implements Serializable {
     private int id;
     private String name;
     private String shortDescription;
+    private String cityDescription;
     private int poiCount;
     private int tourCount;
     /** City ID this map belongs to (for filtering pending maps by city). */
@@ -57,6 +58,14 @@ public class MapSummary implements Serializable {
 
     public void setShortDescription(String shortDescription) {
         this.shortDescription = shortDescription;
+    }
+
+    public String getCityDescription() {
+        return cityDescription;
+    }
+
+    public void setCityDescription(String cityDescription) {
+        this.cityDescription = cityDescription;
     }
 
     public int getPoiCount() {

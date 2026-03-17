@@ -22,6 +22,8 @@ public class EntitlementInfo implements Serializable {
     private boolean canView;
     private boolean canDownload;
     private boolean isCanceled; // default false
+    private Double pricePaid;
+    private LocalDate purchaseDate;
 
     public EntitlementInfo(int cityId, EntitlementType type, LocalDate expiryDate, boolean canView,
             boolean canDownload) {
@@ -68,6 +70,22 @@ public class EntitlementInfo implements Serializable {
 
     public boolean isCanDownload() {
         return canDownload;
+    }
+
+    public Double getPricePaid() {
+        return pricePaid;
+    }
+
+    public void setPricePaid(Double pricePaid) {
+        this.pricePaid = pricePaid;
+    }
+
+    public LocalDate getPurchaseDate() {
+        return purchaseDate;
+    }
+
+    public void setPurchaseDate(LocalDate purchaseDate) {
+        this.purchaseDate = purchaseDate;
     }
 
     public boolean isCanceled() {

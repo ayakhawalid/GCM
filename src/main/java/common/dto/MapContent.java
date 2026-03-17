@@ -16,6 +16,7 @@ public class MapContent implements Serializable {
     private int mapId;
     private int cityId;
     private String cityName;
+    private String cityDescription;
     private String mapName;
     private String shortDescription;
 
@@ -105,6 +106,14 @@ public class MapContent implements Serializable {
 
     public void setCityName(String cityName) {
         this.cityName = cityName;
+    }
+
+    public String getCityDescription() {
+        return cityDescription;
+    }
+
+    public void setCityDescription(String cityDescription) {
+        this.cityDescription = cityDescription;
     }
 
     public String getMapName() {

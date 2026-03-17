@@ -14,6 +14,7 @@ import javafx.collections.FXCollections;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.chart.BarChart;
@@ -28,6 +29,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
@@ -47,6 +49,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ReportsController implements GCMClient.MessageHandler {
+    private static final String BACK_BTN_BASE_STYLE =
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #7f8c8d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;";
+    private static final String BACK_BTN_HOVER_STYLE =
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #111111; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;";
 
     @FXML
     private DatePicker startDatePicker;
@@ -659,6 +665,16 @@ public class ReportsController implements GCMClient.MessageHandler {
         }
     }
 
+    @FXML
+    void handleBackHoverEnter(MouseEvent event) {
+        if (event.getSource() instanceof Button button) button.setStyle(BACK_BTN_HOVER_STYLE);
+    }
+
+    @FXML
+    void handleBackHoverExit(MouseEvent event) {
+        if (event.getSource() instanceof Button button) button.setStyle(BACK_BTN_BASE_STYLE);
+    }
+
     private void showAlert(String title, String content) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle(title);
@@ -691,6 +707,7 @@ public class ReportsController implements GCMClient.MessageHandler {
         guestDashboardPane.setManaged(nextVisible);
     }
 
+    @FXML private void navigateToHome(ActionEvent e) { MenuNavigationHelper.navigateToDashboard((Node) e.getSource()); }
     @FXML private void openSearchScreenFromAction(ActionEvent e) { MenuNavigationHelper.navigateToCatalog(guestDashboardPane); }
     @FXML private void openMapEditorFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToMapEditor(guestDashboardPane); }
     @FXML private void openMyPurchasesFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToMyPurchases(guestDashboardPane); }

@@ -17,9 +17,11 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.VBox;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
@@ -35,6 +37,10 @@ import java.util.Optional;
  * Features a premium UI with rejection notes functionality.
  */
 public class EditApprovalScreen implements GCMClient.MessageHandler {
+    private static final String BACK_BTN_BASE_STYLE =
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #7f8c8d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;";
+    private static final String BACK_BTN_HOVER_STYLE =
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #111111; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;";
 
     @FXML
     private TableView<MapVersionDTO> versionsTable;
@@ -346,6 +352,16 @@ public class EditApprovalScreen implements GCMClient.MessageHandler {
         navigateTo("/client/dashboard.fxml", "GCM Dashboard", 1000, 700);
     }
 
+    @FXML
+    public void handleBackHoverEnter(MouseEvent event) {
+        if (event.getSource() instanceof Button button) button.setStyle(BACK_BTN_HOVER_STYLE);
+    }
+
+    @FXML
+    public void handleBackHoverExit(MouseEvent event) {
+        if (event.getSource() instanceof Button button) button.setStyle(BACK_BTN_BASE_STYLE);
+    }
+
     @Override
     public void displayMessage(Object msg) {
         Platform.runLater(() -> {
@@ -456,6 +472,7 @@ public class EditApprovalScreen implements GCMClient.MessageHandler {
         guestDashboardPane.setManaged(nextVisible);
     }
 
+    @FXML private void navigateToHome(ActionEvent e) { MenuNavigationHelper.navigateToDashboard((Node) e.getSource()); }
     @FXML private void openSearchScreenFromAction(ActionEvent e) { MenuNavigationHelper.navigateToCatalog(guestDashboardPane); }
     @FXML private void openMapEditorFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToMapEditor(guestDashboardPane); }
     @FXML private void openMyPurchasesFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToMyPurchases(guestDashboardPane); }

@@ -10,6 +10,7 @@ import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
+import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
@@ -105,9 +106,11 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
     private ObservableList<CitySearchResult> searchResults;
     private ObservableList<MapSummary> mapsList;
     private static final String BACK_BTN_BASE_STYLE =
-            "-fx-background-color: transparent; -fx-text-fill: #111111; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;";
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #7f8c8d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;";
     private static final String BACK_BTN_HOVER_STYLE =
-            "-fx-background-color: #eeeeee; -fx-text-fill: #111111; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;";
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #111111; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;";
+    private static final String BACK_BTN_PRESSED_STYLE =
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #111111; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;";
     private static final String GUEST_NAV_BTN_BASE_STYLE =
             "-fx-background-color: white; -fx-text-fill: #00712d; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 10 14; -fx-cursor: hand; -fx-alignment: center-left;";
     private static final String GUEST_NAV_BTN_HOVER_STYLE =
@@ -118,6 +121,9 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
     @FXML
     public void initialize() {
         applyNavbarLogoSvg();
+        if (backButton != null) {
+            backButton.setStyle(BACK_BTN_BASE_STYLE);
+        }
         MenuNavigationHelper.configureSidebarButtons(mapEditorNavBtn, myPurchasesNavBtn, profileNavBtn, customersNavBtn, pricingNavBtn, pricingApprovalNavBtn, supportNavBtn, agentConsoleNavBtn, editApprovalsNavBtn, reportsNavBtn, userManagementNavBtn);
         searchResults = FXCollections.observableArrayList();
         mapsList = FXCollections.observableArrayList();
@@ -339,6 +345,7 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
         guestDashboardPane.setManaged(nextVisible);
     }
 
+    @FXML private void navigateToHome(ActionEvent e) { MenuNavigationHelper.navigateToDashboard((Node) e.getSource()); }
     @FXML private void openSearchScreenFromAction(ActionEvent e) { MenuNavigationHelper.navigateToCatalog(guestDashboardPane); }
     @FXML private void openMapEditorFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToMapEditor(guestDashboardPane); }
     @FXML private void openMyPurchasesFromMenu(ActionEvent e) { MenuNavigationHelper.navigateToMyPurchases(guestDashboardPane); }
@@ -378,6 +385,20 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
     private void handleBackHoverExit(MouseEvent event) {
         if (event.getSource() instanceof Button button) {
             button.setStyle(BACK_BTN_BASE_STYLE);
+        }
+    }
+
+    @FXML
+    private void handleBackMousePressed(MouseEvent event) {
+        if (event.getSource() instanceof Button button) {
+            button.setStyle(BACK_BTN_PRESSED_STYLE);
+        }
+    }
+
+    @FXML
+    private void handleBackMouseReleased(MouseEvent event) {
+        if (event.getSource() instanceof Button button) {
+            button.setStyle(button.isHover() ? BACK_BTN_HOVER_STYLE : BACK_BTN_BASE_STYLE);
         }
     }
 
@@ -518,27 +539,27 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
         dialog.setTitle("Payment Simulation");
 
         VBox root = new VBox(15);
-        root.setStyle("-fx-background-color: #2c3e50; -fx-padding: 20;");
+        root.setStyle("-fx-background-color: #f5f6fa; -fx-padding: 20; -fx-border-color: #dcdfe3; -fx-border-width: 1;");
         root.setPrefWidth(400);
 
         // Header
         Label title = new Label("Secure Checkout");
-        title.setStyle("-fx-font-size: 20px; -fx-text-fill: white; -fx-font-weight: bold;");
+        title.setStyle("-fx-font-size: 20px; -fx-text-fill: #2c3e50; -fx-font-weight: bold;");
 
         // Summary
         VBox summary = new VBox(5);
-        summary.setStyle("-fx-background-color: #34495e; -fx-padding: 10; -fx-background-radius: 5;");
+        summary.setStyle("-fx-background-color: white; -fx-padding: 10; -fx-background-radius: 8; -fx-border-color: #e3e6ea; -fx-border-radius: 8;");
         String typeStr = months == 0 ? "One-Time Purchase" : months + "-Month Subscription";
         Label sumCity = new Label("City: " + cityName);
         Label sumType = new Label("Type: " + typeStr);
-        sumCity.setStyle("-fx-text-fill: #ecf0f1;");
-        sumType.setStyle("-fx-text-fill: #ecf0f1;");
+        sumCity.setStyle("-fx-text-fill: #2c3e50;");
+        sumType.setStyle("-fx-text-fill: #2c3e50;");
 
         summary.getChildren().addAll(sumCity, sumType);
 
         if (months > 0 && isEligibleForDiscount) {
             Label origPriceLbl = new Label(String.format("Original Price: $%.2f", originalPrice));
-            origPriceLbl.setStyle("-fx-text-fill: #ecf0f1; -fx-strikethrough: true;");
+            origPriceLbl.setStyle("-fx-text-fill: #7f8c8d; -fx-strikethrough: true;");
 
             Label discountLbl = new Label("Renewal Discount: -10%");
             discountLbl.setStyle("-fx-text-fill: #2ecc71; -fx-font-weight: bold;");
@@ -557,22 +578,26 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
         // Fields
         TextField cardField = new TextField();
         cardField.setPromptText("Credit Card Number (13-16 digits)");
+        cardField.setStyle("-fx-background-color: white; -fx-text-fill: #2c3e50; -fx-prompt-text-fill: #95a5a6;");
 
         TextField idField = new TextField();
         idField.setPromptText("Israeli ID (9 digits)");
+        idField.setStyle("-fx-background-color: white; -fx-text-fill: #2c3e50; -fx-prompt-text-fill: #95a5a6;");
 
         HBox row = new HBox(10);
         TextField expField = new TextField();
         expField.setPromptText("Expiry MM/YY");
         expField.setPrefWidth(120);
+        expField.setStyle("-fx-background-color: white; -fx-text-fill: #2c3e50; -fx-prompt-text-fill: #95a5a6;");
 
         TextField cvvField = new TextField();
         cvvField.setPromptText("CVV (3 digits)");
         cvvField.setPrefWidth(100);
+        cvvField.setStyle("-fx-background-color: white; -fx-text-fill: #2c3e50; -fx-prompt-text-fill: #95a5a6;");
         row.getChildren().addAll(expField, cvvField);
 
         CheckBox rememberCardBox = new CheckBox("Remember this card");
-        rememberCardBox.setStyle("-fx-text-fill: white;");
+        rememberCardBox.setStyle("-fx-text-fill: #2c3e50;");
 
         Label errorLabel = new Label();
         errorLabel.setStyle("-fx-text-fill: #e74c3c;");

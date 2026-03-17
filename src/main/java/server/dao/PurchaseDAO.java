@@ -277,7 +277,7 @@ public class PurchaseDAO {
 
         // Get subscriptions (subscriptions table has start_date, not created_at)
         String subQuery = """
-                SELECT s.city_id, c.name, s.end_date, s.is_active
+                SELECT s.city_id, c.name, s.end_date, s.is_active, s.price_paid, s.start_date
                 FROM subscriptions s
                 JOIN cities c ON s.city_id = c.id
                 WHERE s.user_id = ?
@@ -304,6 +304,11 @@ public class PurchaseDAO {
                         isActive,
                         isActive);
                 info.setCanceled(!isDbActive);
+                info.setPricePaid(rs.getDouble("price_paid"));
+                info.setPurchaseDate(
+                        rs.getTimestamp("start_date") != null
+                                ? rs.getTimestamp("start_date").toLocalDateTime().toLocalDate()
+                                : null);
                 purchases.add(info);
             }
         } catch (SQLException e) {
@@ -312,7 +317,7 @@ public class PurchaseDAO {
 
         // Get one-time purchases
         String purchaseQuery = """
-                SELECT p.city_id, c.name, p.purchased_at
+                SELECT p.city_id, c.name, p.purchased_at, p.price_paid
                 FROM purchases p
                 JOIN cities c ON p.city_id = c.id
                 WHERE p.user_id = ?
@@ -329,13 +334,19 @@ public class PurchaseDAO {
                 // One-time: one download per purchase for this city
                 int purchaseCount = getOneTimePurchaseCount(userId, cid);
                 boolean canDownload = getDownloadCount(userId, cid) < purchaseCount;
-                purchases.add(new EntitlementInfo(
+                EntitlementInfo info = new EntitlementInfo(
                         cid,
                         rs.getString("name"),
                         EntitlementInfo.EntitlementType.ONE_TIME,
                         null, // No expiry for one-time
                         true, // Can view
-                        canDownload));
+                        canDownload);
+                info.setPricePaid(rs.getDouble("price_paid"));
+                info.setPurchaseDate(
+                        rs.getTimestamp("purchased_at") != null
+                                ? rs.getTimestamp("purchased_at").toLocalDateTime().toLocalDate()
+                                : null);
+                purchases.add(info);
             }
         } catch (SQLException e) {
             System.err.println("PurchaseDAO.getUserPurchases (purchases): " + e.getMessage());

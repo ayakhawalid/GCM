@@ -33,14 +33,14 @@ public class MapDAO {
         String poiCountSubquery = "(SELECT COUNT(*) FROM map_pois mp WHERE mp.map_id = m.id AND mp.approved = 1)";
         if (currentUserId > 0) {
             // Show approved maps to all; show draft (approved=0 or NULL) only to creator. Save never "publishes".
-            query = "SELECT m.id, m.city_id, m.name, m.short_description, COALESCE(m.approved, 0) as approved, COALESCE(m.created_by, 0) as created_by, COALESCE(m.tour_id, 0) as tour_id, " + poiCountSubquery + " as poi_count, " +
+            query = "SELECT m.id, m.city_id, c.description as city_description, m.name, m.short_description, COALESCE(m.approved, 0) as approved, COALESCE(m.created_by, 0) as created_by, COALESCE(m.tour_id, 0) as tour_id, " + poiCountSubquery + " as poi_count, " +
                     "(SELECT COUNT(*) FROM tours WHERE city_id = m.city_id) as tour_count " +
-                    "FROM maps m WHERE m.city_id = ? AND ((m.approved = 1) OR (m.created_by = ?)) ORDER BY m.name";
+                    "FROM maps m JOIN cities c ON c.id = m.city_id WHERE m.city_id = ? AND ((m.approved = 1) OR (m.created_by = ?)) ORDER BY m.name";
         } else {
-            query = "SELECT m.id, m.city_id, m.name, m.short_description, 1 as approved, COALESCE(m.tour_id, 0) as tour_id, " +
+            query = "SELECT m.id, m.city_id, c.description as city_description, m.name, m.short_description, 1 as approved, COALESCE(m.tour_id, 0) as tour_id, " +
                     poiCountSubquery + " as poi_count, " +
                     "(SELECT COUNT(*) FROM tours WHERE city_id = m.city_id) as tour_count " +
-                    "FROM maps m WHERE m.city_id = ? AND m.approved = 1 ORDER BY m.name";
+                    "FROM maps m JOIN cities c ON c.id = m.city_id WHERE m.city_id = ? AND m.approved = 1 ORDER BY m.name";
         }
 
         try (Connection conn = DBConnector.getConnection()) {
@@ -75,6 +75,7 @@ public class MapDAO {
                         rs.getInt("tour_count"));
                 try {
                     s.setCityId(rs.getInt("city_id"));
+                    s.setCityDescription(rs.getString("city_description"));
                     s.setDraft(approved == 0);
                     int tid = rs.getInt("tour_id");
                     s.setTourId(tid > 0 ? tid : null);
@@ -242,10 +243,10 @@ public class MapDAO {
     private static List<MapSummary> getMapsForCityLegacy(int cityId) throws SQLException {
         List<MapSummary> maps = new ArrayList<>();
         String poiCountExpr = "(SELECT COUNT(*) FROM map_pois mp WHERE mp.map_id = m.id)";
-        String query = "SELECT m.id, m.city_id, m.name, m.short_description, " +
+        String query = "SELECT m.id, m.city_id, c.description as city_description, m.name, m.short_description, " +
                 poiCountExpr + " as poi_count, " +
                 "(SELECT COUNT(*) FROM tours WHERE city_id = m.city_id) as tour_count " +
-                "FROM maps m WHERE m.city_id = ? ORDER BY m.name";
+                "FROM maps m JOIN cities c ON c.id = m.city_id WHERE m.city_id = ? ORDER BY m.name";
         try (Connection conn = DBConnector.getConnection()) {
             if (conn == null) return maps;
             ensureTourMapsForCity(conn, cityId);
@@ -259,6 +260,7 @@ public class MapDAO {
                 MapSummary s = new MapSummary(rs.getInt("id"), name, rs.getString("short_description"),
                         rs.getInt("poi_count"), rs.getInt("tour_count"));
                 try { s.setCityId(rs.getInt("city_id")); } catch (SQLException ignored) { }
+                try { s.setCityDescription(rs.getString("city_description")); } catch (SQLException ignored) { }
                 maps.add(s);
             }
         } catch (SQLException e) {
@@ -283,7 +285,7 @@ public class MapDAO {
         MapContent content = null;
 
         // Main query without tour_id so maps load even when migration_tour_maps.sql has not been run
-        String mapQuery = "SELECT m.id, m.city_id, c.name as city_name, m.name, m.short_description, " +
+        String mapQuery = "SELECT m.id, m.city_id, c.name as city_name, c.description as city_description, m.name, m.short_description, " +
                 "m.created_at, m.updated_at " +
                 "FROM maps m JOIN cities c ON c.id = m.city_id WHERE m.id = ?";
 
@@ -308,6 +310,7 @@ public class MapDAO {
                     rs.getString("city_name"),
                     rs.getString("name"),
                     rs.getString("short_description"));
+            content.setCityDescription(rs.getString("city_description"));
             content.setCreatedAt(rs.getString("created_at"));
             content.setUpdatedAt(rs.getString("updated_at"));
 

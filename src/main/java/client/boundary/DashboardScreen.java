@@ -101,6 +101,12 @@ public class DashboardScreen implements GCMClient.MessageHandler {
     private static final double GUEST_INITIAL_ZOOM = 3.2;
     private static final double GUEST_ZOOM_STEP = 0.4;
     private static final double GUEST_MIN_ZOOM = GUEST_INITIAL_ZOOM;
+    private static final String LEFT_NAV_BTN_BASE_STYLE =
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #7f8c8d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 8 6 0;";
+    private static final String LEFT_NAV_BTN_HOVER_STYLE =
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #111111; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 8 6 0;";
+    private static final String LEFT_NAV_BTN_PRESSED_STYLE =
+            "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #111111; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 8 6 0;";
 
     @FXML
     public void initialize() {
@@ -124,6 +130,9 @@ public class DashboardScreen implements GCMClient.MessageHandler {
 
         if (guestMode && logoutBtn != null) {
             logoutBtn.setText("← Back");
+        }
+        if (logoutBtn != null) {
+            logoutBtn.setStyle(LEFT_NAV_BTN_BASE_STYLE);
         }
         if (logoutIconView != null) {
             logoutIconView.setVisible(!guestMode);
@@ -218,12 +227,25 @@ public class DashboardScreen implements GCMClient.MessageHandler {
             String dataUri = "data:image/svg+xml;base64," + base64;
             String html = "<!DOCTYPE html><html><head><style>"
                     + "body{margin:0;padding:0;overflow:hidden;background:transparent;} "
-                    + "img{width:20px;height:20px;display:block;}"
-                    + "</style></head><body><img src=\"" + dataUri + "\"/></body></html>";
+                    + "img{width:20px;height:20px;display:block;transition:filter .08s linear;}"
+                    + "</style></head><body><img id='icon' src=\"" + dataUri + "\"/>"
+                    + "<script>window.setIconBlack=function(flag){var img=document.getElementById('icon'); if(img){img.style.filter = flag ? 'brightness(0)' : 'none';}}</script>"
+                    + "</body></html>";
             logoutIconView.getEngine().loadContent(html);
         } catch (Exception e) {
             logoutIconView.setVisible(false);
             logoutIconView.setManaged(false);
+        }
+    }
+
+    private void setLogoutIconBlack(boolean black) {
+        if (logoutIconView == null || logoutIconView.getEngine() == null) {
+            return;
+        }
+        try {
+            logoutIconView.getEngine().executeScript("window.setIconBlack && window.setIconBlack(" + black + ");");
+        } catch (Exception ignored) {
+            // Ignore script failures; button text style still updates.
         }
     }
 
@@ -565,6 +587,11 @@ public class DashboardScreen implements GCMClient.MessageHandler {
     }
 
     @FXML
+    private void navigateToHome(ActionEvent e) {
+        MenuNavigationHelper.navigateToDashboard((Node) e.getSource());
+    }
+
+    @FXML
     private void toggleGuestDashboard(ActionEvent event) {
         if (guestDashboardPane == null) {
             return;
@@ -692,29 +719,35 @@ public class DashboardScreen implements GCMClient.MessageHandler {
                 markReadBtn.setStyle(
                         "-fx-font-size: 11px; -fx-background-color: transparent; -fx-text-fill: #007bff; -fx-cursor: hand; -fx-padding: 0;");
                 markReadBtn.setOnAction(e -> {
-                    if (client != null) {
-                        try {
-                            String token = LoginController.currentSessionToken;
-                            Request request = new Request(MessageType.MARK_NOTIFICATION_READ, n.getId(), token);
-                            client.sendToServer(request);
-                            card.setStyle(
-                                    "-fx-background-color: #ffffff; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #ddd; -fx-border-width: 1;");
-                            cardTitleLabel.setText(stripEmojis(n.getTitle() != null ? n.getTitle() : ""));
-                            card.getChildren().remove(markReadBtn);
-                            n.setRead(true);
-                            try {
-                                String countStr = notificationBadge.getText();
-                                if (countStr != null && countStr.equals("9+")) {
-                                    loadNotificationCount();
-                                } else if (countStr != null && !countStr.isEmpty()) {
-                                    int currentCount = Integer.parseInt(countStr);
-                                    updateNotificationBadge(currentCount - 1);
-                                }
-                            } catch (Exception ex) { /* ignore */ }
-                        } catch (IOException ex) {
-                            ex.printStackTrace();
-                        }
+                    if (client == null) {
+                        return;
                     }
+
+                    markReadBtn.setDisable(true);
+                    String token = LoginController.currentSessionToken;
+                    int notificationId = n.getId();
+
+                    new Thread(() -> {
+                        try {
+                            Response response = client.sendRequestSync(
+                                    new Request(MessageType.MARK_NOTIFICATION_READ, notificationId, token));
+                            Platform.runLater(() -> {
+                                if (response != null && response.isOk()) {
+                                    card.setStyle(
+                                            "-fx-background-color: #ffffff; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #ddd; -fx-border-width: 1;");
+                                    cardTitleLabel.setText(stripEmojis(n.getTitle() != null ? n.getTitle() : ""));
+                                    card.getChildren().remove(markReadBtn);
+                                    n.setRead(true);
+                                    // Always refresh from server so badge is exact unread count.
+                                    loadNotificationCount();
+                                } else {
+                                    markReadBtn.setDisable(false);
+                                }
+                            });
+                        } catch (Exception ex) {
+                            Platform.runLater(() -> markReadBtn.setDisable(false));
+                        }
+                    }, "MarkNotificationRead-" + notificationId).start();
                 });
                 card.getChildren().add(markReadBtn);
             }
@@ -754,6 +787,46 @@ public class DashboardScreen implements GCMClient.MessageHandler {
         }
 
         navigateTo("/client/login.fxml", "GCM Login", 500, 600);
+    }
+
+    @FXML
+    private void handleLeftNavHoverEnter(MouseEvent event) {
+        if (event.getSource() instanceof Button button) {
+            button.setStyle(LEFT_NAV_BTN_HOVER_STYLE);
+            if (button == logoutBtn) {
+                setLogoutIconBlack(true);
+            }
+        }
+    }
+
+    @FXML
+    private void handleLeftNavHoverExit(MouseEvent event) {
+        if (event.getSource() instanceof Button button) {
+            button.setStyle(LEFT_NAV_BTN_BASE_STYLE);
+            if (button == logoutBtn) {
+                setLogoutIconBlack(false);
+            }
+        }
+    }
+
+    @FXML
+    private void handleLeftNavMousePressed(MouseEvent event) {
+        if (event.getSource() instanceof Button button) {
+            button.setStyle(LEFT_NAV_BTN_PRESSED_STYLE);
+            if (button == logoutBtn) {
+                setLogoutIconBlack(true);
+            }
+        }
+    }
+
+    @FXML
+    private void handleLeftNavMouseReleased(MouseEvent event) {
+        if (event.getSource() instanceof Button button) {
+            button.setStyle(button.isHover() ? LEFT_NAV_BTN_HOVER_STYLE : LEFT_NAV_BTN_BASE_STYLE);
+            if (button == logoutBtn) {
+                setLogoutIconBlack(button.isHover());
+            }
+        }
     }
 
     private void navigateTo(String fxml, String title, int width, int height) {
