@@ -159,7 +159,7 @@ public class SubscriptionScheduler {
     private boolean sendReminder(ExpiringSubscription sub, String reminderType) {
         try (Connection conn = DBConnector.getConnection()) {
             // 1. Create in-app notification
-            String title = "⚠️ Subscription Expiring Soon";
+            String title = "Subscription Expiring Soon";
             String body = String.format(
                     "Your subscription to %s will expire in %d day(s) on %s. " +
                             "Renew now for the same city and the same duration to receive a 10%% discount!",

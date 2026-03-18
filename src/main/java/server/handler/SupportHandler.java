@@ -6,6 +6,7 @@ import common.Response;
 import common.dto.CreateTicketRequest;
 import common.dto.SupportTicketDTO;
 import common.dto.TicketMessageDTO;
+import server.SessionManager;
 import server.dao.SupportDAO;
 import server.dao.AuditLogDAO;
 import server.service.BotService;
@@ -37,6 +38,7 @@ public class SupportHandler {
             case CREATE_TICKET:
             case GET_MY_TICKETS:
             case GET_TICKET_DETAILS:
+            case CLOSE_TICKET:
             case ESCALATE_TICKET:
             case CUSTOMER_REPLY:
             case AGENT_LIST_ASSIGNED:
@@ -176,7 +178,7 @@ public class SupportHandler {
      * Get ticket details with all messages.
      */
     private static Response handleGetTicketDetails(Request request) {
-        Integer userId = request.getUserId();
+        Integer userId = resolveAgentId(request);
         if (userId == null) {
             return Response.error(request, Response.ERR_AUTHENTICATION, "Authentication required");
         }
@@ -282,7 +284,7 @@ public class SupportHandler {
 
         // Add system message
         SupportDAO.addMessage(ticketId, TicketMessageDTO.SenderType.BOT, null,
-                "📞 This ticket has been escalated to our support team. An agent will be assigned shortly.");
+                "This ticket has been escalated to our support team. An agent will be assigned shortly.");
 
         // Log the action
         auditLog(ACTION_TICKET_ESCALATED, userId, "SUPPORT_TICKET", ticketId);
@@ -294,7 +296,7 @@ public class SupportHandler {
      * Agent: Get assigned tickets.
      */
     private static Response handleAgentListAssigned(Request request) {
-        Integer agentId = request.getUserId();
+        Integer agentId = resolveAgentId(request);
         if (agentId == null) {
             return Response.error(request, Response.ERR_AUTHENTICATION, "Authentication required");
         }
@@ -304,10 +306,24 @@ public class SupportHandler {
     }
 
     /**
+     * Resolve agent/user ID from request (userId or session token).
+     */
+    private static Integer resolveAgentId(Request request) {
+        int uid = request.getUserId();
+        if (uid > 0) return uid;
+        String token = request.getSessionToken();
+        if (token != null && !token.isEmpty()) {
+            SessionManager.SessionInfo info = SessionManager.getInstance().validateSession(token);
+            if (info != null) return info.userId;
+        }
+        return null;
+    }
+
+    /**
      * Agent: Get pending escalations (unassigned).
      */
     private static Response handleAgentListPending(Request request) {
-        Integer agentId = request.getUserId();
+        Integer agentId = resolveAgentId(request);
         if (agentId == null) {
             return Response.error(request, Response.ERR_AUTHENTICATION, "Authentication required");
         }
@@ -320,7 +336,7 @@ public class SupportHandler {
      * Agent: Claim an unassigned ticket.
      */
     private static Response handleAgentClaimTicket(Request request) {
-        Integer agentId = request.getUserId();
+        Integer agentId = resolveAgentId(request);
         if (agentId == null) {
             return Response.error(request, Response.ERR_AUTHENTICATION, "Authentication required");
         }
@@ -348,7 +364,7 @@ public class SupportHandler {
 
         // Add notification message
         SupportDAO.addMessage(ticketId, TicketMessageDTO.SenderType.BOT, null,
-                "👤 A support agent has been assigned to your ticket.");
+                "A support agent has been assigned to your ticket.");
 
         // Log the action
         auditLog(ACTION_AGENT_ASSIGNED, agentId, "SUPPORT_TICKET", ticketId, "agentId", String.valueOf(agentId));
@@ -361,7 +377,7 @@ public class SupportHandler {
      */
     @SuppressWarnings("unchecked")
     private static Response handleAgentReply(Request request) {
-        Integer agentId = request.getUserId();
+        Integer agentId = resolveAgentId(request);
         if (agentId == null) {
             return Response.error(request, Response.ERR_AUTHENTICATION, "Authentication required");
         }
@@ -461,7 +477,7 @@ public class SupportHandler {
      */
     @SuppressWarnings("unchecked")
     private static Response handleAgentCloseTicket(Request request) {
-        Integer agentId = request.getUserId();
+        Integer agentId = resolveAgentId(request);
         if (agentId == null) {
             return Response.error(request, Response.ERR_AUTHENTICATION, "Authentication required");
         }
@@ -496,7 +512,7 @@ public class SupportHandler {
 
         // Add system message
         SupportDAO.addMessage(ticketId, TicketMessageDTO.SenderType.BOT, null,
-                "✅ This ticket has been resolved and closed by our support team. Thank you for contacting us!");
+                "This ticket has been resolved and closed by our support team. Thank you for contacting us!");
 
         boolean success = SupportDAO.closeTicket(ticketId);
         if (!success) {

@@ -89,16 +89,16 @@ public class TicketMessageDTO implements Serializable {
     }
 
     /**
-     * Get display name for the sender based on type.
+     * Get display name for the sender based on type (no emojis).
      */
     public String getSenderDisplay() {
         switch (senderType) {
             case CUSTOMER:
                 return "You";
             case BOT:
-                return "🤖 Support Bot";
+                return "Support Bot";
             case AGENT:
-                return "👤 Agent" + (senderName != null ? " " + senderName : "");
+                return "Agent" + (senderName != null ? " " + senderName : "");
             default:
                 return senderType.name();
         }

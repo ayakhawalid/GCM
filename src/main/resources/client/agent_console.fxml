@@ -15,7 +15,7 @@
             <Button onAction="#toggleGuestDashboard" style="-fx-background-color: #d5ed9f; -fx-text-fill: #00712d; -fx-font-family: 'Segoe UI', 'Trebuchet MS', sans-serif; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 10; -fx-padding: 6 14; -fx-cursor: hand;" text="Menu" />
             <Region HBox.hgrow="ALWAYS" />
             <HBox alignment="CENTER_RIGHT" spacing="5">
-                <WebView fx:id="navbarLogoView1" contextMenuEnabled="false" maxHeight="30" maxWidth="30" minHeight="30" minWidth="30" prefHeight="30" prefWidth="30" />
+                <WebView fx:id="navbarLogoView1" maxHeight="30" maxWidth="30" minHeight="30" minWidth="30" prefHeight="30" prefWidth="30" />
                 <Button onAction="#navigateToHome" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: black; -fx-font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; -fx-font-size: 24px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 0 2 0 2;" text="Global City Map" />
             </HBox>
         </HBox>
@@ -45,26 +45,26 @@
                     <Label fx:id="agentInfoLabel" text="Agent" style="-fx-text-fill: #7f8c8d; -fx-font-size: 14px;"/>
                 </HBox>
                 <HBox spacing="20" style="-fx-padding: 0 20 20 20;" VBox.vgrow="ALWAYS">
-            <!-- Left: Ticket Queues -->
-            <VBox spacing="15" prefWidth="350" style="-fx-background-color: #ecf0f1; -fx-background-radius: 15; -fx-padding: 15;">
-                <TabPane fx:id="queueTabPane" tabClosingPolicy="UNAVAILABLE">
+            <!-- Left: Ticket Queues (stretches to container, Refresh at bottom) -->
+            <VBox prefWidth="320" maxHeight="Infinity" VBox.vgrow="ALWAYS" spacing="15" style="-fx-background-color: #ecf0f1; -fx-background-radius: 15; -fx-padding: 15;">
+                <TabPane fx:id="queueTabPane" tabClosingPolicy="UNAVAILABLE" VBox.vgrow="ALWAYS" style="-fx-background-color: transparent;">
                     <Tab text="My Tickets">
-                        <VBox spacing="10" style="-fx-padding: 10;">
-                            <ListView fx:id="myTicketsList" prefHeight="400"
-                                      style="-fx-background-color: transparent;"/>
-                            <Button text="↻ Refresh" onAction="#refreshMyTickets" prefWidth="310"
-                                    style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 10; -fx-background-radius: 10;"/>
+                        <VBox maxHeight="Infinity" spacing="15" style="-fx-padding: 0;">
+                            <ListView fx:id="myTicketsList" VBox.vgrow="ALWAYS"
+                                      style="-fx-background-color: white; -fx-control-inner-background: white; -fx-control-inner-background-alt: white;"/>
+                            <Button text="Refresh" onAction="#refreshMyTickets" prefWidth="290"
+                                    style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 10; -fx-background-radius: 5;"/>
                         </VBox>
                     </Tab>
                     <Tab text="Pending Queue">
-                        <VBox spacing="10" style="-fx-padding: 10;">
-                            <ListView fx:id="pendingTicketsList" prefHeight="400"
-                                      style="-fx-background-color: transparent;"/>
+                        <VBox maxHeight="Infinity" spacing="15" style="-fx-padding: 0;">
+                            <ListView fx:id="pendingTicketsList" VBox.vgrow="ALWAYS"
+                                      style="-fx-background-color: white; -fx-control-inner-background: white; -fx-control-inner-background-alt: white;"/>
                             <HBox spacing="10">
-                                <Button text="↻ Refresh" onAction="#refreshPendingQueue" HBox.hgrow="ALWAYS"
-                                        style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 10; -fx-background-radius: 10;"/>
+                                <Button text="Refresh" onAction="#refreshPendingQueue" HBox.hgrow="ALWAYS"
+                                        style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 10; -fx-background-radius: 5;"/>
                                 <Button text="Claim Selected" onAction="#claimTicket" HBox.hgrow="ALWAYS"
-                                        style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-padding: 10; -fx-background-radius: 10;"/>
+                                        style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 10; -fx-background-radius: 5;"/>
                             </HBox>
                         </VBox>
                     </Tab>
@@ -72,7 +72,7 @@
             </VBox>
             
             <!-- Right: Ticket Detail / Chat -->
-            <VBox spacing="15" HBox.hgrow="ALWAYS" style="-fx-background-color: #ecf0f1; -fx-background-radius: 15; -fx-padding: 20;">
+            <VBox spacing="15" HBox.hgrow="ALWAYS" style="-fx-background-color: white; -fx-background-radius: 15; -fx-padding: 20;">
                 <!-- Ticket Header -->
                 <HBox alignment="CENTER_LEFT" spacing="15">
                     <VBox HBox.hgrow="ALWAYS">
@@ -87,22 +87,22 @@
                 
                 <Separator style="-fx-background-color: #bdc3c7;"/>
                 
-                <!-- Messages -->
+                <!-- Messages (white themed like Support) -->
                 <ScrollPane fx:id="messagesScrollPane" fitToWidth="true" VBox.vgrow="ALWAYS"
-                            style="-fx-background-color: #ecf0f1;">
+                            style="-fx-background-color: transparent; -fx-background: transparent;">
                     <VBox fx:id="messagesContainer" spacing="10" style="-fx-padding: 10;">
                         <Label text="Select a ticket to view conversation" 
-                               style="-fx-text-fill: #7f8c8d; -fx-font-size: 14px;"/>
+                               style="-fx-text-fill: #666; -fx-font-size: 14px;"/>
                     </VBox>
                 </ScrollPane>
                 
-                <!-- Reply Input -->
+                <!-- Reply Input (match Support) -->
                 <VBox fx:id="replyBox" spacing="10" visible="false">
                     <TextArea fx:id="replyInput" promptText="Type your reply..." prefRowCount="3"
-                              style="-fx-background-color: white; -fx-text-fill: #2c3e50; -fx-font-size: 14px; -fx-control-inner-background: white;"/>
+                              style="-fx-background-color: white; -fx-text-fill: #2c3e50; -fx-prompt-text-fill: #95a5a6; -fx-font-size: 14px; -fx-control-inner-background: white; -fx-border-color: #EDEDED; -fx-border-width: 1; -fx-border-radius: 10; -fx-background-radius: 10;"/>
                     <HBox spacing="10" alignment="CENTER_RIGHT">
                         <Button text="Send Reply" onAction="#sendReply"
-                                style="-fx-background-color: #9b59b6; -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 12 25; -fx-background-radius: 10;"/>
+                                style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-size: 13px; -fx-font-weight: bold; -fx-padding: 12 25; -fx-background-radius: 10;"/>
                     </HBox>
                 </VBox>
             </VBox>
@@ -111,7 +111,7 @@
         </HBox>
     </center>
     
-    <!-- Footer -->
+    <!-- Footer (match Support page) -->
     <bottom>
         <HBox alignment="CENTER" spacing="20" style="-fx-background-color: #ecf0f1; -fx-padding: 10;">
             <Label fx:id="statusLabel" text="Ready" style="-fx-text-fill: #7f8c8d; -fx-font-size: 11px;"/>

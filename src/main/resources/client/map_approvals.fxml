@@ -19,7 +19,7 @@
             <Region HBox.hgrow="ALWAYS" />
             <Label fx:id="statusLabel" style="-fx-text-fill: #888; -fx-font-size: 13px;" text="Ready" />
             <HBox alignment="CENTER_RIGHT" spacing="5">
-                <WebView fx:id="navbarLogoView1" contextMenuEnabled="false" maxHeight="30" maxWidth="30" minHeight="30" minWidth="30" prefHeight="30" prefWidth="30" />
+                <WebView fx:id="navbarLogoView1" maxHeight="30" maxWidth="30" minHeight="30" minWidth="30" prefHeight="30" prefWidth="30" />
                 <Button onAction="#navigateToHome" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: black; -fx-font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; -fx-font-size: 24px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 0 2 0 2;" text="Global City Map" />
             </HBox>
         </HBox>
@@ -43,15 +43,15 @@
                     <Button fx:id="userManagementNavBtn" managed="false" maxWidth="1.7976931348623157E308" onAction="#openUserManagementFromMenu" styleClass="sidebar-nav-btn" text="User Management" visible="false" />
                 </VBox>
             </VBox>
-            <!-- Left Panel: Pending Requests -->
-            <VBox minWidth="300" prefWidth="300" spacing="10" style="-fx-background-color: #ecf0f1; -fx-padding: 15;">
+            <!-- Left Panel: Pending Requests (white and grey like Map Editor) -->
+            <VBox minWidth="300" prefWidth="300" spacing="15" style="-fx-background-color: #ecf0f1; -fx-padding: 15;">
                 <Label style="-fx-text-fill: #2c3e50; -fx-font-size: 16px; -fx-font-weight: bold;" text="Pending Requests" />
                 <ListView fx:id="requestsListView" style="-fx-background-color: white; -fx-control-inner-background: white;" VBox.vgrow="ALWAYS" />
-                <Button onAction="#handleRefresh" prefWidth="300" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 10; -fx-background-radius: 5;" text="🔄 Refresh" />
+                <Button onAction="#handleRefresh" prefWidth="270" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 12px; -fx-padding: 10; -fx-background-radius: 5;" text="Refresh" />
             </VBox>
             <VBox fx:id="detailsPanel" spacing="20" style="-fx-padding: 25; -fx-background-color: #f5f6fa;" visible="false" HBox.hgrow="ALWAYS">
                 <!-- Header Info -->
-                <VBox spacing="10" style="-fx-background-color: #ecf0f1; -fx-padding: 20; -fx-background-radius: 10;">
+                <VBox spacing="10" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 10; -fx-border-color: #e9ecef; -fx-border-width: 1; -fx-border-radius: 10;">
                     <HBox alignment="CENTER_LEFT" spacing="15">
                         <Label fx:id="mapNameLabel" style="-fx-text-fill: #2c3e50; -fx-font-size: 20px; -fx-font-weight: bold;" text="Map Name" />
                         <Label fx:id="cityNameLabel" style="-fx-text-fill: #7f8c8d; -fx-font-size: 14px;" text="City Name" />
@@ -63,15 +63,15 @@
                 </VBox>
                 
                 <!-- Changes Summary -->
-                <VBox spacing="10" style="-fx-background-color: #ecf0f1; -fx-padding: 20; -fx-background-radius: 10;" VBox.vgrow="ALWAYS">
+                <VBox spacing="10" style="-fx-background-color: white; -fx-padding: 20; -fx-background-radius: 10; -fx-border-color: #e9ecef; -fx-border-width: 1; -fx-border-radius: 10;" VBox.vgrow="ALWAYS">
                     <Label style="-fx-text-fill: #2c3e50; -fx-font-size: 16px; -fx-font-weight: bold;" text="Changes Summary" />
                     <TextArea fx:id="changesArea" editable="false" style="-fx-control-inner-background: white; -fx-text-fill: #2c3e50; -fx-font-family: 'Consolas', monospace;" wrapText="true" VBox.vgrow="ALWAYS" />
                 </VBox>
                 
                 <!-- Action Buttons -->
                 <HBox alignment="CENTER_RIGHT" spacing="20">
-                    <Button onAction="#handleReject" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 30; -fx-background-radius: 5;" text="❌ Reject" />
-                    <Button onAction="#handleApprove" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 30; -fx-background-radius: 5;" text="✅ Approve &amp; Publish" />
+                    <Button onAction="#handleReject" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 30; -fx-background-radius: 5;" text="Reject" />
+                    <Button onAction="#handleApprove" style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10 30; -fx-background-radius: 5;" text="Approve &amp; Publish" />
                 </HBox>
             </VBox>
         </HBox>

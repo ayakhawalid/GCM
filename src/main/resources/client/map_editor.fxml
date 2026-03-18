@@ -26,7 +26,7 @@
             <Region HBox.hgrow="ALWAYS" />
             <Label fx:id="statusLabel" style="-fx-text-fill: #888; -fx-font-size: 13px;" text="Ready" />
             <HBox alignment="CENTER_RIGHT" spacing="5">
-                <WebView fx:id="navbarLogoView1" contextMenuEnabled="false" maxHeight="30" maxWidth="30" minHeight="30" minWidth="30" prefHeight="30" prefWidth="30" />
+                <WebView fx:id="navbarLogoView1" maxHeight="30" maxWidth="30" minHeight="30" minWidth="30" prefHeight="30" prefWidth="30" />
                 <Button onAction="#navigateToHome" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: black; -fx-font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; -fx-font-size: 24px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 0 2 0 2;" text="Global City Map" />
             </HBox>
         </HBox>

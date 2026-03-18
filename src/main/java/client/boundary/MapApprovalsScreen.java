@@ -89,11 +89,11 @@ public class MapApprovalsScreen implements ContentManagementControl.ContentCallb
                 super.updateItem(item, empty);
                 if (empty || item == null) {
                     setText(null);
-                    setStyle("-fx-control-inner-background: #0f0f23;");
+                    setStyle("");
                 } else {
                     String title = getRequestDisplayName(item);
                     setText(title + " – by " + item.getUsername());
-                    setStyle("-fx-text-fill: white; -fx-font-size: 13px; -fx-control-inner-background: #0f0f23;");
+                    setStyle("-fx-text-fill: #2c3e50; -fx-font-size: 13px;");
                 }
             }
         });

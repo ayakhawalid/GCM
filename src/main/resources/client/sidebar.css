@@ -15,3 +15,26 @@
 .sidebar-nav-btn:hover {
     -fx-background-color: #d5ed9f;
 }
+
+/* Approval screens: white table with border lines between rows */
+.approval-table .table-row-cell {
+    -fx-background-color: white;
+}
+.approval-table .table-row-cell .table-cell {
+    -fx-background-color: white;
+    -fx-border-color: #e9ecef transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+    -fx-text-fill: #2d3436;
+}
+.approval-table .column-header {
+    -fx-background-color: #f8f9fa;
+    -fx-border-color: #e9ecef transparent transparent transparent;
+    -fx-border-width: 1 0 1 0;
+    -fx-text-fill: #2d3436;
+}
+.approval-table .table-row-cell:selected .table-cell {
+    -fx-background-color: #e8f4fd;
+}
+.approval-table {
+    -fx-table-cell-border-color: #e9ecef;
+}

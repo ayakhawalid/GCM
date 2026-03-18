@@ -481,35 +481,32 @@ public class SupportScreen {
         statusLabel.setText("Sending reply...");
         messageInput.setDisable(true);
 
-        new Thread(() -> {
-            try {
-                GCMClient client = GCMClient.getInstance();
-                Map<String, Object> payload = new java.util.HashMap<>();
-                payload.put("ticketId", selectedTicket.getId());
-                payload.put("message", message);
+        try {
+            GCMClient client = GCMClient.getInstance();
+            Map<String, Object> payload = new java.util.HashMap<>();
+            payload.put("ticketId", selectedTicket.getId());
+            payload.put("message", message);
 
-                Request request = new Request(MessageType.CUSTOMER_REPLY, payload);
-                request.setUserId(getCurrentUserId());
+            Request request = new Request(MessageType.CUSTOMER_REPLY, payload);
+            request.setUserId(getCurrentUserId());
 
-                Response response = client.sendRequestSync(request);
-
-                Platform.runLater(() -> {
-                    messageInput.setDisable(false);
-                    if (response.isOk()) {
-                        messageInput.clear();
-                        loadTicketDetails(selectedTicket.getId());
-                    } else {
-                        showAlert(Alert.AlertType.ERROR, "Error", response.getErrorMessage());
-                    }
-                    statusLabel.setText("Ready");
-                });
-            } catch (Exception e) {
-                Platform.runLater(() -> {
-                    messageInput.setDisable(false);
-                    statusLabel.setText("Connection error");
-                });
-            }
-        }).start();
+            // Use async send so the escalate button stays responsive if the bot is slow or doesn't answer
+            client.sendRequestAsync(request, response -> Platform.runLater(() -> {
+                messageInput.setDisable(false);
+                if (response != null && response.isOk()) {
+                    messageInput.clear();
+                    loadTicketDetails(selectedTicket.getId());
+                } else if (response != null) {
+                    showAlert(Alert.AlertType.ERROR, "Error", response.getErrorMessage());
+                } else {
+                    statusLabel.setText("Connection error or timeout");
+                }
+                statusLabel.setText("Ready");
+            }));
+        } catch (Exception e) {
+            messageInput.setDisable(false);
+            statusLabel.setText("Connection error");
+        }
     }
 
     @FXML

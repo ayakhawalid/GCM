@@ -14,7 +14,7 @@
     <top>
         <HBox alignment="CENTER_LEFT" spacing="12" style="-fx-background-color: white; -fx-padding: 14 20; -fx-border-color: #e7e7e7; -fx-border-width: 0 0 1 0;">
             <HBox alignment="CENTER_LEFT" spacing="1">
-                <WebView fx:id="logoutIconView" contextMenuEnabled="false" maxHeight="20" maxWidth="20" minHeight="20" minWidth="20" prefHeight="20" prefWidth="20" />
+                <WebView fx:id="logoutIconView" maxHeight="20" maxWidth="20" minHeight="20" minWidth="20" prefHeight="20" prefWidth="20" />
                 <Button fx:id="logoutBtn" onAction="#handleLogout" onMouseEntered="#handleLeftNavHoverEnter" onMouseExited="#handleLeftNavHoverExit" onMousePressed="#handleLeftNavMousePressed" onMouseReleased="#handleLeftNavMouseReleased" prefHeight="33.0" prefWidth="64.0" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #7f8c8d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 8 6 0;" text="Logout" />
             </HBox>
             <Button onAction="#toggleGuestDashboard" style="-fx-background-color: #d5ed9f; -fx-text-fill: #00712d; -fx-font-family: 'Segoe UI', 'Trebuchet MS', sans-serif; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 10; -fx-padding: 6 14; -fx-cursor: hand;" text="Menu" />
@@ -27,7 +27,7 @@
             <Button onAction="#zoomInGuestMap" style="-fx-background-color: #f2f7e7; -fx-text-fill: #00712d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-radius: 8; -fx-padding: 3 12; -fx-cursor: hand; -fx-border-color: transparent;" text="+" />
             <Button onAction="#zoomOutGuestMap" style="-fx-background-color: #f2f7e7; -fx-text-fill: #00712d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-radius: 8; -fx-padding: 3 13; -fx-cursor: hand; -fx-border-color: transparent;" text="-" />
             <HBox alignment="CENTER_RIGHT" spacing="5">
-                <WebView fx:id="navbarLogoView" contextMenuEnabled="false" maxHeight="30" maxWidth="30" minHeight="30" minWidth="30" prefHeight="30" prefWidth="30" />
+                <WebView fx:id="navbarLogoView" maxHeight="30" maxWidth="30" minHeight="30" minWidth="30" prefHeight="30" prefWidth="30" />
                 <Button onAction="#navigateToHome" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: black; -fx-font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; -fx-font-size: 24px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 0 2 0 2;" text="Global City Map" />
             </HBox>
         </HBox>

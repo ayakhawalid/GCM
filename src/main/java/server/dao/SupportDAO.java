@@ -244,15 +244,15 @@ public class SupportDAO {
     }
 
     /**
-     * Get tickets assigned to an agent.
+     * Get all tickets assigned to an agent (including closed).
      */
     public static List<SupportTicketDTO> getTicketsForAgent(int agentId) {
         String sql = "SELECT t.*, u.username, a.username as agent_name " +
                 "FROM support_tickets t " +
                 "JOIN users u ON t.user_id = u.id " +
                 "LEFT JOIN users a ON t.assigned_agent_id = a.id " +
-                "WHERE t.assigned_agent_id = ? AND t.status != 'CLOSED' " +
-                "ORDER BY t.priority DESC, t.created_at ASC";
+                "WHERE t.assigned_agent_id = ? " +
+                "ORDER BY t.status = 'CLOSED' ASC, t.priority DESC, t.created_at ASC";
 
         List<SupportTicketDTO> tickets = new ArrayList<>();
 
@@ -274,13 +274,13 @@ public class SupportDAO {
     }
 
     /**
-     * Get pending escalated tickets (unassigned).
+     * Get pending tickets (unassigned, not closed). Includes new customer tickets (OPEN, BOT_RESPONDED) and escalated (ESCALATED).
      */
     public static List<SupportTicketDTO> getPendingEscalations() {
         String sql = "SELECT t.*, u.username, NULL as agent_name " +
                 "FROM support_tickets t " +
                 "JOIN users u ON t.user_id = u.id " +
-                "WHERE t.status = 'ESCALATED' AND t.assigned_agent_id IS NULL " +
+                "WHERE t.status != 'CLOSED' AND t.assigned_agent_id IS NULL " +
                 "ORDER BY t.priority DESC, t.created_at ASC";
 
         List<SupportTicketDTO> tickets = new ArrayList<>();

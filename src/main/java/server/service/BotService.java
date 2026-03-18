@@ -101,13 +101,13 @@ public class BotService {
     private static String buildStrongMatchResponse(FaqEntry faq, int userId) {
         StringBuilder sb = new StringBuilder();
         sb.append("Hello! I found an answer that might help:\n\n");
-        sb.append("📌 **").append(faq.question).append("**\n\n");
+        sb.append("**").append(faq.question).append("**\n\n");
         sb.append(faq.answer).append("\n\n");
 
         // Add personalized context if available
         String context = getPersonalizedContext(userId, faq.category);
         if (context != null) {
-            sb.append("💡 ").append(context).append("\n\n");
+            sb.append(context).append("\n\n");
         }
 
         sb.append("Did this answer your question? If yes, please close this ticket. ");
@@ -122,18 +122,18 @@ public class BotService {
     private static String buildPartialMatchResponse(FaqEntry faq, int userId, boolean isBillingRelated) {
         StringBuilder sb = new StringBuilder();
         sb.append("Hello! Based on your inquiry, this might be helpful:\n\n");
-        sb.append("📌 **").append(faq.question).append("**\n\n");
+        sb.append("**").append(faq.question).append("**\n\n");
         sb.append(faq.answer).append("\n\n");
 
         if (isBillingRelated) {
-            sb.append("⚠️ I notice this may be related to billing. ");
+            sb.append("I notice this may be related to billing. ");
             sb.append("For billing matters, I recommend speaking with a human agent who can assist you directly.\n\n");
         }
 
         // Add personalized context if available
         String context = getPersonalizedContext(userId, faq.category);
         if (context != null) {
-            sb.append("💡 ").append(context).append("\n\n");
+            sb.append(context).append("\n\n");
         }
 
         sb.append(
@@ -194,10 +194,11 @@ public class BotService {
         SupportDAO.addMessage(ticketId, TicketMessageDTO.SenderType.BOT, null, result.response);
         SupportDAO.updateTicketStatus(ticketId, SupportTicketDTO.Status.BOT_RESPONDED);
 
+        // Do NOT set status to ESCALATED here: the bot message tells the user to click
+        // "Escalate to Agent", so the button must stay visible (it is hidden when status is ESCALATED).
+        // Ticket remains in agents' pending queue (BOT_RESPONDED with no agent assigned).
         if (result.shouldAutoEscalate) {
-            // Mark for escalation but don't assign agent yet
-            SupportDAO.updateTicketStatus(ticketId, SupportTicketDTO.Status.ESCALATED);
-            System.out.println("[BotService] Ticket #" + ticketId + " auto-escalated due to no FAQ match");
+            System.out.println("[BotService] Ticket #" + ticketId + " flagged for review (user can escalate)");
         }
     }
 }

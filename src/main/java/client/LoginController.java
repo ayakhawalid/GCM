@@ -8,6 +8,9 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
+import javafx.geometry.Pos;
+import javafx.scene.layout.StackPane;
+import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 import javafx.stage.Screen;
 
@@ -44,6 +47,10 @@ public class LoginController implements GCMClient.MessageHandler {
     @FXML
     private PasswordField passwordField;
     @FXML
+    private TextField passwordVisibleField;
+    @FXML
+    private Button passwordToggleBtn;
+    @FXML
     private Label usernameErrorLabel;
     @FXML
     private Label passwordErrorLabel;
@@ -57,6 +64,10 @@ public class LoginController implements GCMClient.MessageHandler {
     // Client instance
     private GCMClient client;
 
+    private static final String EYE_SVG = "/client/assets/eye.svg";
+    private static final String EYE_OFF_SVG = "/client/assets/eye-off.svg";
+    private static final int EYE_ICON_SIZE = 22;
+
     @FXML
     public void initialize() {
         // Add listeners for real-time validation feedback
@@ -67,6 +78,11 @@ public class LoginController implements GCMClient.MessageHandler {
         passwordField.textProperty().addListener((observable, oldValue, newValue) -> {
             validatePassword(newValue);
         });
+        if (passwordVisibleField != null) {
+            passwordVisibleField.textProperty().addListener((observable, oldValue, newValue) -> {
+                validatePassword(newValue);
+            });
+        }
 
         // Initialize client connection
         try {
@@ -79,6 +95,34 @@ public class LoginController implements GCMClient.MessageHandler {
             statusLabel.setStyle("-fx-text-fill: #e74c3c;");
             loginButton.setDisable(true);
             guestButton.setDisable(true);
+        }
+
+        applyPasswordEyeIcon(false);
+        if (passwordToggleBtn != null && passwordToggleBtn.getParent() instanceof StackPane) {
+            StackPane.setAlignment(passwordToggleBtn, Pos.CENTER_RIGHT);
+        }
+    }
+
+    private void applyPasswordEyeIcon(boolean passwordVisible) {
+        if (passwordToggleBtn == null) return;
+        String res = passwordVisible ? EYE_OFF_SVG : EYE_SVG;
+        try (java.io.InputStream in = getClass().getResourceAsStream(res)) {
+            if (in == null) return;
+            byte[] svgBytes = in.readAllBytes();
+            String base64 = java.util.Base64.getEncoder().encodeToString(svgBytes);
+            String dataUri = "data:image/svg+xml;base64," + base64;
+            String html = "<!DOCTYPE html><html><head><style>"
+                    + "body{margin:0;padding:0;overflow:hidden;background:transparent;} "
+                    + "img{width:" + EYE_ICON_SIZE + "px;height:" + EYE_ICON_SIZE + "px;display:block;}"
+                    + "</style></head><body><img src=\"" + dataUri + "\"/></body></html>";
+            WebView wv = new WebView();
+            wv.setPrefSize(EYE_ICON_SIZE, EYE_ICON_SIZE);
+            wv.setMinSize(EYE_ICON_SIZE, EYE_ICON_SIZE);
+            wv.setMaxSize(EYE_ICON_SIZE, EYE_ICON_SIZE);
+            wv.setStyle("-fx-background-color: transparent;");
+            wv.getEngine().loadContent(html);
+            passwordToggleBtn.setGraphic(wv);
+        } catch (Exception ignored) {
         }
     }
 
@@ -126,9 +170,28 @@ public class LoginController implements GCMClient.MessageHandler {
     }
 
     @FXML
+    private void togglePasswordVisibility() {
+        if (passwordVisibleField.isVisible()) {
+            passwordField.setText(passwordVisibleField.getText());
+            passwordVisibleField.setVisible(false);
+            passwordVisibleField.setManaged(false);
+            passwordField.setVisible(true);
+            passwordField.setManaged(true);
+            applyPasswordEyeIcon(false);
+        } else {
+            passwordVisibleField.setText(passwordField.getText());
+            passwordVisibleField.setVisible(true);
+            passwordVisibleField.setManaged(true);
+            passwordField.setVisible(false);
+            passwordField.setManaged(false);
+            applyPasswordEyeIcon(true);
+        }
+    }
+
+    @FXML
     private void handleLogin() {
         String username = usernameField.getText();
-        String password = passwordField.getText();
+        String password = passwordVisibleField.isVisible() ? passwordVisibleField.getText() : passwordField.getText();
 
         if (!validateUsername(username) || !validatePassword(password)) {
             statusLabel.setText("Fix errors above");

@@ -4,10 +4,13 @@ import common.Request;
 import common.Response;
 import ocsf.client.AbstractClient;
 import java.io.IOException;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /**
  * GCM Client - handles server communication.
@@ -35,6 +38,9 @@ public class GCMClient extends AbstractClient {
     // For synchronous requests: only the response matching this ID is put in the queue
     private volatile UUID pendingSyncRequestId = null;
     private BlockingQueue<Response> responseQueue = new LinkedBlockingQueue<>();
+
+    /** Callbacks for async requests (requestId -> callback). Response is delivered on handler thread. */
+    private final Map<UUID, Consumer<Response>> asyncCallbacks = new ConcurrentHashMap<>();
 
     /**
      * Private constructor to enforce Singleton pattern.
@@ -114,6 +120,9 @@ public class GCMClient extends AbstractClient {
         return currentRole;
     }
 
+    /** Lock so only one thread sends at a time (avoids "stream active" / concurrent write errors). */
+    private final Object sendLock = new Object();
+
     /**
      * Send a request synchronously and wait for response.
      * 
@@ -121,24 +130,46 @@ public class GCMClient extends AbstractClient {
      * @return Response from server, or null on timeout/error
      */
     public Response sendRequestSync(Request request) {
-        try {
-            responseQueue.clear();
-            pendingSyncRequestId = request.getRequestId();
-            sendToServer(request);
+        synchronized (sendLock) {
+            try {
+                responseQueue.clear();
+                pendingSyncRequestId = request.getRequestId();
+                sendToServer(request);
 
-            Response response = responseQueue.poll(30, TimeUnit.SECONDS);
-            if (response == null) {
-                System.err.println("GCMClient: Request timed out (id=" + request.getRequestId() + ")");
+                Response response = responseQueue.poll(30, TimeUnit.SECONDS);
+                if (response == null) {
+                    System.err.println("GCMClient: Request timed out (id=" + request.getRequestId() + ")");
+                }
+                return response;
+            } catch (IOException e) {
+                System.err.println("GCMClient: Error sending request: " + e.getMessage());
+                return null;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return null;
+            } finally {
+                pendingSyncRequestId = null;
             }
-            return response;
-        } catch (IOException e) {
-            System.err.println("GCMClient: Error sending request: " + e.getMessage());
-            return null;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return null;
-        } finally {
-            pendingSyncRequestId = null;
+        }
+    }
+
+    /**
+     * Send a request asynchronously. The lock is held only while sending; when the response
+     * arrives it is passed to the callback (invoked on the same thread as handleMessageFromServer).
+     * Use this for operations that can take a long time (e.g. bot reply) so the user can still
+     * perform other actions (e.g. escalate) without blocking.
+     */
+    public void sendRequestAsync(Request request, Consumer<Response> callback) {
+        if (callback == null) return;
+        asyncCallbacks.put(request.getRequestId(), callback);
+        synchronized (sendLock) {
+            try {
+                sendToServer(request);
+            } catch (IOException e) {
+                System.err.println("GCMClient: Error sending async request: " + e.getMessage());
+                asyncCallbacks.remove(request.getRequestId());
+                callback.accept(null);
+            }
         }
     }
 
@@ -146,11 +177,16 @@ public class GCMClient extends AbstractClient {
     protected void handleMessageFromServer(Object msg) {
         System.out.println("GCMClient: handleMessageFromServer called with: " + msg.getClass().getName());
 
-        // If it's a Response, add to queue only when someone is waiting for this request's response
+        // If it's a Response, deliver to sync waiter or async callback
         if (msg instanceof Response) {
             Response resp = (Response) msg;
             if (pendingSyncRequestId != null && pendingSyncRequestId.equals(resp.getRequestId())) {
                 responseQueue.offer(resp);
+            } else {
+                Consumer<Response> async = asyncCallbacks.remove(resp.getRequestId());
+                if (async != null) {
+                    async.accept(resp);
+                }
             }
         }
 

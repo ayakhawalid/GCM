@@ -48,10 +48,20 @@
                 <!-- Password Section -->
                 <VBox spacing="8.0" alignment="CENTER_LEFT">
                     <Label text="Password" style="-fx-text-fill: #34495e; -fx-font-size: 13px; -fx-font-weight: bold;" />
-                    <PasswordField fx:id="passwordField" 
+                    <StackPane maxWidth="1.7976931348623157E308" prefHeight="40.0">
+                        <PasswordField fx:id="passwordField" 
+                                       promptText="Enter password (4-30 characters)"
+                                       maxWidth="1.7976931348623157E308" prefHeight="40.0"
+                                       style="-fx-font-size: 14px; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #dcdde1; -fx-border-width: 1.5; -fx-padding: 8 44 8 12;" />
+                        <TextField fx:id="passwordVisibleField" 
                                    promptText="Enter password (4-30 characters)"
                                    maxWidth="1.7976931348623157E308" prefHeight="40.0"
-                                   style="-fx-font-size: 14px; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #dcdde1; -fx-border-width: 1.5; -fx-padding: 8 12 8 12;" />
+                                   style="-fx-font-size: 14px; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #dcdde1; -fx-border-width: 1.5; -fx-padding: 8 44 8 12;"
+                                   visible="false" managed="false" />
+                        <Button fx:id="passwordToggleBtn" text="" onAction="#togglePasswordVisibility"
+                                style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-background-radius: 8; -fx-cursor: hand; -fx-padding: 0 10 0 0; -fx-min-width: 36; -fx-pref-height: 40; -fx-min-height: 40;"
+                                />
+                    </StackPane>
                     <Label fx:id="passwordErrorLabel" 
                            style="-fx-text-fill: #e74c3c; -fx-font-size: 11px;" 
                            text="" />

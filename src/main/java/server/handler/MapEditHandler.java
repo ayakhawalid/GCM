@@ -461,8 +461,14 @@ public class MapEditHandler {
             return Response.error(request, Response.ERR_VALIDATION, "Request ID required");
         }
         int reqId = (Integer) request.getPayload();
+
+        MapEditRequestDTO reqDTO = MapEditRequestDAO.getRequest(reqId);
+
         try (Connection conn = DBConnector.getConnection()) {
             if (MapEditRequestDAO.updateStatus(conn, reqId, "REJECTED")) {
+                if (reqDTO != null && reqDTO.getUserId() > 0) {
+                    notifyEditorAboutDecision(conn, reqDTO, false);
+                }
                 return Response.success(request, ValidationResult.success("Request rejected"));
             }
         } catch (SQLException e) {
@@ -843,6 +849,7 @@ public class MapEditHandler {
             System.out.println("MapEditHandler: Created " + createdCount + " granular request(s) for approval");
 
             if (createdCount > 0) {
+                notifyManagersAboutNewRequest(userId, changes, createdCount);
                 String msg = createdCount + " item(s) submitted for manager approval. You can approve or reject each one individually.";
                 validation = ValidationResult.success(msg);
                 return Response.success(request, validation);
@@ -1175,6 +1182,10 @@ public class MapEditHandler {
                 conn.commit();
                 validation.setSuccessMessage("Request approved and changes applied successfully.");
                 System.out.println("MapEditHandler: Approved request " + reqId);
+
+                if (reqDTO.getUserId() > 0) {
+                    notifyEditorAboutDecision(null, reqDTO, true);
+                }
 
                 Integer cityId = changes.getCityId();
                 if (cityId != null && cityId > 0) {
@@ -1764,8 +1775,106 @@ public class MapEditHandler {
     }
 
     /**
-     * Notify all customers who purchased a city about a map update.
+     * Notify all content managers and company managers when an employee submits a map edit request.
      */
+    private static void notifyManagersAboutNewRequest(int editorUserId, MapChanges changes, int requestCount) {
+        try {
+            server.dao.UserDAO.UserInfo editor = server.dao.UserDAO.findById(editorUserId);
+            String editorName = editor != null ? editor.username : "An employee";
+
+            String title = "New Map Edit Request(s)";
+
+            StringBuilder body = new StringBuilder();
+            body.append(editorName).append(" has submitted ").append(requestCount)
+                    .append(requestCount == 1 ? " edit request" : " edit requests").append(" for approval.\n\n");
+            String mapName = null;
+            String cityName = null;
+            if (changes != null) {
+                mapName = changes.getNewMapName();
+                if ((mapName == null || mapName.isEmpty()) && changes.getNewMaps() != null && !changes.getNewMaps().isEmpty())
+                    mapName = changes.getNewMaps().get(0).getName();
+                cityName = changes.getNewCityName();
+                if ((cityName == null || cityName.isEmpty()) && changes.getNewCityWithMap() != null && !changes.getNewCityWithMap().isEmpty())
+                    cityName = changes.getNewCityWithMap().get(0).getCityName();
+            }
+            if (mapName != null && !mapName.isEmpty()) body.append("Map: ").append(mapName).append("\n");
+            if (cityName != null && !cityName.isEmpty()) body.append("City: ").append(cityName).append("\n");
+            body.append("\nReview in Map Approvals.");
+
+            java.util.List<Integer> managerIds = server.dao.UserDAO.getContentManagerUserIds();
+            try (Connection conn = DBConnector.getConnection()) {
+                for (int managerId : managerIds) {
+                    if (managerId == editorUserId) continue;
+                    if (NotificationDAO.createNotification(conn, managerId, title, body.toString()) > 0) {
+                        System.out.println("MapEditHandler: Notified manager " + managerId + " about new request(s) from " + editorName);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("MapEditHandler: Failed to notify managers: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Notify the editor who submitted a request about the manager's decision.
+     * Builds a summary of what was in the request (cities, maps, POIs, tours).
+     */
+    private static void notifyEditorAboutDecision(Connection conn, MapEditRequestDTO reqDTO, boolean approved) {
+        try {
+            String decision = approved ? "Approved" : "Rejected";
+            MapChanges changes = reqDTO.getChanges();
+            String mapName = reqDTO.getMapName() != null ? reqDTO.getMapName() : "";
+            String cityName = reqDTO.getCityName() != null ? reqDTO.getCityName() : "";
+
+            String title = "Edit Request " + decision;
+
+            StringBuilder body = new StringBuilder();
+            body.append("Your edit request");
+            if (!mapName.isEmpty()) body.append(" for map \"").append(mapName).append("\"");
+            if (!cityName.isEmpty()) body.append(" in ").append(cityName);
+            body.append(" has been ").append(decision.toLowerCase()).append(".\n\n");
+
+            if (changes != null) {
+                body.append("Changes summary:\n");
+
+                if (changes.getNewCities() != null && !changes.getNewCities().isEmpty())
+                    body.append("  Add city: ").append(changes.getNewCities().size()).append(" city(s)\n");
+                if (changes.getDeletedCityIds() != null && !changes.getDeletedCityIds().isEmpty())
+                    body.append("  Delete city: ").append(changes.getDeletedCityIds().size()).append(" city(s)\n");
+
+                if (changes.getNewMaps() != null && !changes.getNewMaps().isEmpty())
+                    body.append("  Add map: ").append(changes.getNewMaps().size()).append(" map(s)\n");
+                if (changes.getDeletedMapIds() != null && !changes.getDeletedMapIds().isEmpty())
+                    body.append("  Remove map: ").append(changes.getDeletedMapIds().size()).append(" map(s)\n");
+                if (changes.getNewMapName() != null && !changes.getNewMapName().isEmpty())
+                    body.append("  Edit map: name/description updated\n");
+
+                if (changes.getAddedPois() != null && !changes.getAddedPois().isEmpty())
+                    body.append("  Add POI: ").append(changes.getAddedPois().size()).append(" POI(s)\n");
+                if (changes.getUpdatedPois() != null && !changes.getUpdatedPois().isEmpty())
+                    body.append("  Edit POI: ").append(changes.getUpdatedPois().size()).append(" POI(s)\n");
+                if (changes.getDeletedPoiIds() != null && !changes.getDeletedPoiIds().isEmpty())
+                    body.append("  Delete POI: ").append(changes.getDeletedPoiIds().size()).append(" POI(s)\n");
+
+                if (changes.getAddedTours() != null && !changes.getAddedTours().isEmpty())
+                    body.append("  Add tour: ").append(changes.getAddedTours().size()).append(" tour(s)\n");
+                if (changes.getUpdatedTours() != null && !changes.getUpdatedTours().isEmpty())
+                    body.append("  Edit tour: ").append(changes.getUpdatedTours().size()).append(" tour(s)\n");
+                if (changes.getDeletedTourIds() != null && !changes.getDeletedTourIds().isEmpty())
+                    body.append("  Remove tour: ").append(changes.getDeletedTourIds().size()).append(" tour(s)\n");
+            }
+
+            // Use a separate connection so the insert commits (approve flow uses conn with autoCommit=false)
+            try (Connection notifConn = DBConnector.getConnection()) {
+                if (NotificationDAO.createNotification(notifConn, reqDTO.getUserId(), title, body.toString().trim()) > 0) {
+                    System.out.println("MapEditHandler: Notified editor " + reqDTO.getUserId() + " about " + decision + " request #" + reqDTO.getId());
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("MapEditHandler: Failed to notify editor: " + e.getMessage());
+        }
+    }
+
     private static void notifyCustomersAboutMapUpdate(int cityId, MapChanges changes) {
         try {
             // Get city name
@@ -1773,7 +1882,7 @@ public class MapEditHandler {
             String cityName = city != null ? city.getName() : "City #" + cityId;
 
             // Build notification message
-            String title = "🗺️ Map Update: " + cityName;
+            String title = "Map Update: " + cityName;
             String body = buildUpdateNotificationBody(changes, cityName);
 
             // Get all customers who purchased this city

@@ -271,7 +271,7 @@ public class EditApprovalScreen implements GCMClient.MessageHandler {
         // Custom rejection dialog with styled TextArea
         Dialog<String> dialog = new Dialog<>();
         dialog.setTitle("Reject Edit Request");
-        dialog.setHeaderText("✗ Reject: " + selectedVersion.getMapName());
+        dialog.setHeaderText("Reject: " + selectedVersion.getMapName());
 
         // Set up buttons
         ButtonType rejectButtonType = new ButtonType("Reject", ButtonBar.ButtonData.OK_DONE);

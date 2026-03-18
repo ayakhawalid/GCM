@@ -16,7 +16,7 @@
             <Button onAction="#toggleGuestDashboard" style="-fx-background-color: #d5ed9f; -fx-text-fill: #00712d; -fx-font-family: 'Segoe UI', 'Trebuchet MS', sans-serif; -fx-font-size: 13px; -fx-font-weight: bold; -fx-background-radius: 10; -fx-padding: 6 14; -fx-cursor: hand;" text="Menu" />
             <Region HBox.hgrow="ALWAYS" />
             <HBox alignment="CENTER_RIGHT" spacing="5">
-                <WebView fx:id="navbarLogoView1" contextMenuEnabled="false" maxHeight="30" maxWidth="30" minHeight="30" minWidth="30" prefHeight="30" prefWidth="30" />
+                <WebView fx:id="navbarLogoView1" maxHeight="30" maxWidth="30" minHeight="30" minWidth="30" prefHeight="30" prefWidth="30" />
                 <Button onAction="#navigateToHome" style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: black; -fx-font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; -fx-font-size: 24px; -fx-font-weight: bold; -fx-cursor: hand; -fx-padding: 0 2 0 2;" text="Global City Map" />
             </HBox>
         </HBox>
@@ -43,17 +43,18 @@
             </VBox>
             <HBox spacing="20" style="-fx-padding: 20;" HBox.hgrow="ALWAYS">
             
-            <!-- Left: Pending Requests Table -->
-            <VBox spacing="15" HBox.hgrow="ALWAYS" style="-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 20; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);">
+            <!-- Left: Pending Requests Table (white theme, border between rows) -->
+            <VBox spacing="15" HBox.hgrow="ALWAYS" style="-fx-background-color: white; -fx-background-radius: 8; -fx-padding: 20; -fx-border-color: #e9ecef; -fx-border-width: 1; -fx-border-radius: 8;">
                 <HBox alignment="CENTER_LEFT" spacing="10">
-                    <Label text="📋 Pending Pricing Requests" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2d3436;"/>
+                    <Label text="Pending Pricing Requests" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2d3436;"/>
                     <Region HBox.hgrow="ALWAYS"/>
                     <Label fx:id="statusLabel" text="Ready" style="-fx-text-fill: #7f8c8d; -fx-font-size: 11px;"/>
-                    <Button text="🔄 Refresh" onAction="#refreshRequests"
+                    <Button text="Refresh" onAction="#refreshRequests"
                             style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 8 15; -fx-background-radius: 6; -fx-cursor: hand;"/>
                 </HBox>
                 
-                <TableView fx:id="requestsTable" VBox.vgrow="ALWAYS" style="-fx-background-radius: 8;">
+                <TableView fx:id="requestsTable" VBox.vgrow="ALWAYS" styleClass="approval-table"
+                           style="-fx-background-color: white; -fx-background-radius: 8; -fx-control-inner-background: white; -fx-control-inner-background-alt: white;">
                     <columns>
                         <TableColumn fx:id="cityCol" text="City" prefWidth="140"/>
                         <TableColumn fx:id="currentCol" text="Current" prefWidth="90"/>
@@ -70,7 +71,7 @@
 
             <!-- Right: Request Details Panel -->
             <VBox spacing="20" prefWidth="380" style="-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 20; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);">
-                <Label text="📄 Request Details" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2d3436;"/>
+                <Label text="Request Details" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2d3436;"/>
                 
                 <!-- City Info -->
                 <VBox spacing="8" style="-fx-background-color: #f8f9fa; -fx-background-radius: 8; -fx-padding: 15;">
@@ -117,10 +118,10 @@
 
                 <!-- Action Buttons -->
                 <HBox spacing="15">
-                    <Button fx:id="approveBtn" text="✓ Approve" onAction="#handleApprove"
+                    <Button fx:id="approveBtn" text="Approve" onAction="#handleApprove"
                             HBox.hgrow="ALWAYS" prefWidth="150"
                             style="-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 12; -fx-background-radius: 8; -fx-cursor: hand;"/>
-                    <Button fx:id="rejectBtn" text="✗ Reject" onAction="#handleReject"
+                    <Button fx:id="rejectBtn" text="Reject" onAction="#handleReject"
                             HBox.hgrow="ALWAYS" prefWidth="150"
                             style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 12; -fx-background-radius: 8; -fx-cursor: hand;"/>
                 </HBox>

@@ -125,6 +125,47 @@ public class UserDAO {
     }
 
     /**
+     * Find user by ID.
+     */
+    public static UserInfo findById(int userId) {
+        String sql = "SELECT id, username, email, role, is_active FROM users WHERE id = ?";
+        try (Connection conn = DBConnector.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, userId);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return new UserInfo(
+                        rs.getInt("id"),
+                        rs.getString("username"),
+                        rs.getString("email"),
+                        rs.getString("role"),
+                        rs.getBoolean("is_active"));
+            }
+        } catch (SQLException e) {
+            System.err.println("Error finding user by id: " + e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Get user IDs of all CONTENT_MANAGER and COMPANY_MANAGER users (for notifications).
+     */
+    public static java.util.List<Integer> getContentManagerUserIds() {
+        java.util.List<Integer> ids = new java.util.ArrayList<>();
+        String sql = "SELECT id FROM users WHERE role IN ('CONTENT_MANAGER', 'COMPANY_MANAGER') AND is_active = TRUE";
+        try (Connection conn = DBConnector.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql);
+             ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                ids.add(rs.getInt("id"));
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting manager user IDs: " + e.getMessage());
+        }
+        return ids;
+    }
+
+    /**
      * Create a new customer user.
      * 
      * @param username     Username (must be unique)

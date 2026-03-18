@@ -9,6 +9,7 @@
 <?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.StackPane?>
 <?import javafx.scene.text.Font?>
 
 <StackPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" fx:controller="client.RegistrationController"
@@ -56,20 +57,40 @@
                 <!-- Password Section -->
                 <VBox spacing="3.0" alignment="CENTER_LEFT">
                     <Label text="Password *" style="-fx-text-fill: #34495e; -fx-font-size: 12px; -fx-font-weight: bold;" />
-                    <PasswordField fx:id="passwordField" 
+                    <StackPane maxWidth="1.7976931348623157E308" prefHeight="35.0">
+                        <PasswordField fx:id="passwordField" 
+                                       promptText="At least 4 characters"
+                                       prefHeight="35.0"
+                                       style="-fx-font-size: 13px; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #dcdde1; -fx-border-width: 1.5; -fx-padding: 6 40 6 12;" />
+                        <TextField fx:id="passwordVisibleField" 
                                    promptText="At least 4 characters"
                                    prefHeight="35.0"
-                                   style="-fx-font-size: 13px; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #dcdde1; -fx-border-width: 1.5; -fx-padding: 6 12 6 12;" />
+                                   style="-fx-font-size: 13px; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #dcdde1; -fx-border-width: 1.5; -fx-padding: 6 40 6 12;"
+                                   visible="false" managed="false" />
+                        <Button fx:id="passwordToggleBtn" text="" onAction="#togglePasswordVisibility"
+                                style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-background-radius: 8; -fx-cursor: hand; -fx-padding: 0 10 0 0; -fx-min-width: 36; -fx-pref-height: 35; -fx-min-height: 35;"
+                                />
+                    </StackPane>
                     <Label fx:id="passwordErrorLabel" style="-fx-text-fill: #e74c3c; -fx-font-size: 10px;" text="" />
                 </VBox>
 
                 <!-- Confirm Password Section -->
                 <VBox spacing="3.0" alignment="CENTER_LEFT">
                     <Label text="Confirm Password *" style="-fx-text-fill: #34495e; -fx-font-size: 12px; -fx-font-weight: bold;" />
-                    <PasswordField fx:id="confirmPasswordField" 
+                    <StackPane maxWidth="1.7976931348623157E308" prefHeight="35.0">
+                        <PasswordField fx:id="confirmPasswordField" 
+                                       promptText="Re-enter password"
+                                       prefHeight="35.0"
+                                       style="-fx-font-size: 13px; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #dcdde1; -fx-border-width: 1.5; -fx-padding: 6 40 6 12;" />
+                        <TextField fx:id="confirmPasswordVisibleField" 
                                    promptText="Re-enter password"
                                    prefHeight="35.0"
-                                   style="-fx-font-size: 13px; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #dcdde1; -fx-border-width: 1.5; -fx-padding: 6 12 6 12;" />
+                                   style="-fx-font-size: 13px; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #dcdde1; -fx-border-width: 1.5; -fx-padding: 6 40 6 12;"
+                                   visible="false" managed="false" />
+                        <Button fx:id="confirmPasswordToggleBtn" text="" onAction="#toggleConfirmPasswordVisibility"
+                                style="-fx-background-color: transparent; -fx-border-color: transparent; -fx-background-radius: 8; -fx-cursor: hand; -fx-padding: 0 10 0 0; -fx-min-width: 36; -fx-pref-height: 35; -fx-min-height: 35;"
+                                />
+                    </StackPane>
                     <Label fx:id="confirmPasswordErrorLabel" style="-fx-text-fill: #e74c3c; -fx-font-size: 10px;" text="" />
                 </VBox>
 
