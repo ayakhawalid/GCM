@@ -11,8 +11,11 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.web.WebView;
 import javafx.geometry.Pos;
-import javafx.scene.layout.Region;
+import javafx.scene.Scene;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+import javafx.stage.Modality;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
 
@@ -50,16 +53,24 @@ public class RegistrationController {
     @FXML
     private TextField phoneField;
     @FXML
-    private TextField cardLast4Field;
+    private CheckBox addPaymentDetailsCheckBox;
+    @FXML
+    private Label paymentStatusLabel;
 
     @FXML
     private Label usernameErrorLabel;
+
+    /** Stored after user fills payment details popup (card last 4 digits and expiry). */
+    private String savedCardLast4 = "";
+    private String savedCardExpiry = "";
     @FXML
     private Label emailErrorLabel;
     @FXML
     private Label passwordErrorLabel;
     @FXML
     private Label confirmPasswordErrorLabel;
+    @FXML
+    private Label phoneErrorLabel;
     @FXML
     private Label statusLabel;
 
@@ -90,6 +101,9 @@ public class RegistrationController {
         }
         if (confirmPasswordVisibleField != null) {
             confirmPasswordVisibleField.textProperty().addListener((obs, old, val) -> validateConfirmPassword(val));
+        }
+        if (phoneField != null) {
+            phoneField.textProperty().addListener((obs, old, val) -> validatePhone(val));
         }
 
         applyPasswordEyeIcon(false);
@@ -178,6 +192,124 @@ public class RegistrationController {
     }
 
     @FXML
+    private void onPaymentDetailsCheckboxChanged() {
+        if (addPaymentDetailsCheckBox == null) return;
+        if (addPaymentDetailsCheckBox.isSelected()) {
+            showPaymentDetailsDialog();
+        } else {
+            savedCardLast4 = "";
+            savedCardExpiry = "";
+            if (paymentStatusLabel != null)
+                paymentStatusLabel.setText("No card added");
+        }
+    }
+
+    private void showPaymentDetailsDialog() {
+        Stage dialog = new Stage();
+        dialog.initModality(Modality.APPLICATION_MODAL);
+        dialog.setTitle("Payment details (optional)");
+
+        VBox root = new VBox(15);
+        root.setStyle("-fx-background-color: #f5f6fa; -fx-padding: 20; -fx-border-color: #dcdfe3; -fx-border-width: 1;");
+        root.setPrefWidth(400);
+
+        Label title = new Label("Enter card details");
+        title.setStyle("-fx-font-size: 18px; -fx-text-fill: #2c3e50; -fx-font-weight: bold;");
+
+        TextField cardField = new TextField();
+        cardField.setPromptText("Credit Card Number (13-16 digits)");
+        cardField.setStyle("-fx-background-color: white; -fx-text-fill: #2c3e50; -fx-prompt-text-fill: #95a5a6;");
+
+        TextField idField = new TextField();
+        idField.setPromptText("Israeli ID (9 digits)");
+        idField.setStyle("-fx-background-color: white; -fx-text-fill: #2c3e50; -fx-prompt-text-fill: #95a5a6;");
+
+        HBox row = new HBox(10);
+        TextField expField = new TextField();
+        expField.setPromptText("Expiry MM/YY");
+        expField.setPrefWidth(120);
+        expField.setStyle("-fx-background-color: white; -fx-text-fill: #2c3e50; -fx-prompt-text-fill: #95a5a6;");
+        TextField cvvField = new TextField();
+        cvvField.setPromptText("CVV (3 digits)");
+        cvvField.setPrefWidth(100);
+        cvvField.setStyle("-fx-background-color: white; -fx-text-fill: #2c3e50; -fx-prompt-text-fill: #95a5a6;");
+        row.getChildren().addAll(expField, cvvField);
+
+        Label errorLabel = new Label();
+        errorLabel.setStyle("-fx-text-fill: #e74c3c;");
+
+        HBox btnBox = new HBox(10);
+        btnBox.setAlignment(Pos.CENTER_RIGHT);
+        Button cancelBtn = new Button("Cancel");
+        cancelBtn.setStyle("-fx-background-color: #95a5a6; -fx-text-fill: white;");
+        cancelBtn.setOnAction(e -> {
+            if (addPaymentDetailsCheckBox != null)
+                addPaymentDetailsCheckBox.setSelected(false);
+            dialog.close();
+        });
+        Button saveBtn = new Button("Save");
+        saveBtn.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold;");
+        saveBtn.setOnAction(e -> {
+            String err = validatePaymentFields(cardField.getText(), idField.getText(), expField.getText(), cvvField.getText());
+            if (err != null) {
+                errorLabel.setText(err);
+            } else {
+                String cardNumber = cardField.getText().trim();
+                savedCardLast4 = cardNumber.length() > 4 ? cardNumber.substring(cardNumber.length() - 4) : cardNumber;
+                savedCardExpiry = expField.getText().trim();
+                if (paymentStatusLabel != null) {
+                    paymentStatusLabel.setText(String.format("Card **** %s saved (Exp: %s)", savedCardLast4, savedCardExpiry));
+                    paymentStatusLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-size: 11px;");
+                }
+                dialog.close();
+            }
+        });
+
+        btnBox.getChildren().addAll(cancelBtn, saveBtn);
+        root.getChildren().addAll(title, cardField, idField, row, errorLabel, btnBox);
+
+        dialog.setScene(new Scene(root));
+        dialog.sizeToScene();
+        dialog.showAndWait();
+    }
+
+    private String validatePaymentFields(String card, String id, String exp, String cvv) {
+        if (card == null || !card.matches("\\d{13,16}"))
+            return "Card must be 13-16 digits.";
+        if (id == null || !id.matches("\\d{9}"))
+            return "ID must be exactly 9 digits.";
+        if (cvv == null || !cvv.matches("\\d{3}"))
+            return "CVV must be exactly 3 digits.";
+        if (exp == null || !exp.matches("(0[1-9]|1[0-2])/\\d{2}"))
+            return "Expiry must be MM/YY.";
+        try {
+            String[] parts = exp.split("/");
+            int month = Integer.parseInt(parts[0]);
+            int year = Integer.parseInt(parts[1]) + 2000;
+            java.time.YearMonth current = java.time.YearMonth.now();
+            java.time.YearMonth expYield = java.time.YearMonth.of(year, month);
+            if (expYield.isBefore(current))
+                return "Card is expired.";
+        } catch (Exception e) {
+            return "Invalid expiry date.";
+        }
+        int sum = 0;
+        boolean alternate = false;
+        for (int i = card.length() - 1; i >= 0; i--) {
+            int n = Integer.parseInt(card.substring(i, i + 1));
+            if (alternate) {
+                n *= 2;
+                if (n > 9) n = (n % 10) + 1;
+            }
+            sum += n;
+            alternate = !alternate;
+        }
+        if (sum % 10 != 0)
+            return "Invalid credit card number (Luhn check failed).";
+        return null;
+    }
+
+    @FXML
     private void toggleConfirmPasswordVisibility() {
         if (confirmPasswordVisibleField.isVisible()) {
             confirmPasswordField.setText(confirmPasswordVisibleField.getText());
@@ -258,6 +390,23 @@ public class RegistrationController {
         return true;
     }
 
+    private boolean validatePhone(String phone) {
+        if (phoneErrorLabel == null) return true;
+        if (phone == null || phone.trim().isEmpty()) {
+            phoneErrorLabel.setText("");
+            return true;
+        }
+        String digits = phone.trim();
+        if (!digits.matches("\\d{9}")) {
+            phoneErrorLabel.setText("Phone must be exactly 9 digits");
+            phoneErrorLabel.setStyle("-fx-text-fill: #e74c3c; -fx-font-size: 10px;");
+            return false;
+        }
+        phoneErrorLabel.setText("✓");
+        phoneErrorLabel.setStyle("-fx-text-fill: #27ae60; -fx-font-size: 10px;");
+        return true;
+    }
+
     @FXML
     private void handleRegister() {
         // Validate all fields
@@ -266,6 +415,7 @@ public class RegistrationController {
         valid &= validateEmail(emailField.getText());
         valid &= validatePassword(getPassword());
         valid &= validateConfirmPassword(getConfirmPassword());
+        valid &= validatePhone(phoneField.getText());
 
         if (!valid) {
             statusLabel.setText("Please fix the errors above");
@@ -273,13 +423,8 @@ public class RegistrationController {
             return;
         }
 
-        // Validate card (optional but if provided, must be 4 digits)
-        String cardLast4 = cardLast4Field.getText().trim();
-        if (!cardLast4.isEmpty() && !cardLast4.matches("\\d{4}")) {
-            statusLabel.setText("Card must be exactly 4 digits");
-            statusLabel.setStyle("-fx-text-fill: #e74c3c;");
-            return;
-        }
+        String cardLast4 = (savedCardLast4 != null && !savedCardLast4.isEmpty()) ? savedCardLast4 : "0000";
+        String cardExpiry = (savedCardExpiry != null && !savedCardExpiry.isEmpty()) ? savedCardExpiry : null;
 
         statusLabel.setText("Creating account...");
         statusLabel.setStyle("-fx-text-fill: #3498db;");
@@ -291,7 +436,8 @@ public class RegistrationController {
                 getPassword(),
                 phoneField.getText().trim(),
                 "tok_mock_" + System.currentTimeMillis(), // Mock payment token
-                cardLast4.isEmpty() ? "0000" : cardLast4);
+                cardLast4,
+                cardExpiry);
 
         // Send to server
         try {

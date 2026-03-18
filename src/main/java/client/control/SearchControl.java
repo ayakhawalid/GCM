@@ -8,6 +8,7 @@ import common.MessageType;
 import common.Request;
 import common.Response;
 import common.dto.CitySearchResult;
+import common.dto.CustomerProfileDTO;
 import common.dto.SearchRequest;
 import client.LoginController;
 
@@ -31,6 +32,13 @@ public class SearchControl implements GCMClient.MessageHandler {
 
         void onError(String errorCode, String errorMessage);
     }
+
+    /** Callback for receiving profile (e.g. saved card) when opening checkout. */
+    public interface ProfileCallback {
+        void onProfile(CustomerProfileDTO profile);
+    }
+
+    private ProfileCallback pendingProfileCallback;
 
     public SearchControl(String host, int port) throws IOException {
         // Host/port ignored as we use singleton
@@ -92,6 +100,22 @@ public class SearchControl implements GCMClient.MessageHandler {
 
         common.dto.DiscountCheckRequest reqPayload = new common.dto.DiscountCheckRequest(cityId, months);
         Request request = new Request(MessageType.CHECK_DISCOUNT_ELIGIBILITY, reqPayload, token);
+        sendRequest(request);
+    }
+
+    /**
+     * Fetch current user's profile (e.g. for saved card in checkout).
+     * Invokes callback with CustomerProfileDTO on success, or null on error/not found.
+     */
+    public void getMyProfile(ProfileCallback callback) {
+        String token = LoginController.currentSessionToken;
+        if (token == null || token.isEmpty()) {
+            if (callback != null)
+                callback.onProfile(null);
+            return;
+        }
+        pendingProfileCallback = callback;
+        Request request = new Request(MessageType.GET_MY_PROFILE, null, token);
         sendRequest(request);
     }
 
@@ -161,6 +185,19 @@ public class SearchControl implements GCMClient.MessageHandler {
                 resultCallback.onDiscountEligibility((Boolean) response.getPayload());
             } else {
                 resultCallback.onDiscountEligibility(false); // Default to no discount on error
+            }
+            return;
+        }
+
+        if (requestType == MessageType.GET_MY_PROFILE) {
+            ProfileCallback cb = pendingProfileCallback;
+            pendingProfileCallback = null;
+            if (cb != null) {
+                CustomerProfileDTO profile = null;
+                if (response.isOk() && response.getPayload() instanceof CustomerProfileDTO) {
+                    profile = (CustomerProfileDTO) response.getPayload();
+                }
+                cb.onProfile(profile);
             }
             return;
         }

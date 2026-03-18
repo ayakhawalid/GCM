@@ -3,6 +3,7 @@ package client.boundary;
 import client.MenuNavigationHelper;
 import client.control.SearchControl;
 import common.dto.CitySearchResult;
+import common.dto.CustomerProfileDTO;
 import common.dto.MapSummary;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -533,7 +534,19 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
             updateStatus("Guests cannot purchase - Please log in first", "#e74c3c");
             return;
         }
+        if (searchControl == null) {
+            updateStatus("Not connected to server", "#e74c3c");
+            return;
+        }
+        updateStatus("Loading payment options...", "#667eea");
+        searchControl.getMyProfile(profile -> Platform.runLater(() -> {
+            updateStatus("", "#2c3e50");
+            showPaymentDialogWithProfile(cityId, months, originalPrice, cityName, profile);
+        }));
+    }
 
+    private void showPaymentDialogWithProfile(int cityId, int months, double originalPrice, String cityName,
+            CustomerProfileDTO profile) {
         Stage dialog = new Stage();
         dialog.initModality(javafx.stage.Modality.APPLICATION_MODAL);
         dialog.setTitle("Payment Simulation");
@@ -575,7 +588,21 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
             summary.getChildren().add(sumPrice);
         }
 
-        // Fields
+        root.getChildren().add(title);
+        root.getChildren().add(summary);
+
+        // Only show saved card if we have real last4 (not masked e.g. for managers)
+        boolean hasSavedCard = profile != null && profile.getCardLast4() != null && !profile.getCardLast4().isEmpty()
+                && !"****".equals(profile.getCardLast4());
+        String savedExpiry = hasSavedCard && profile.getCardExpiry() != null ? profile.getCardExpiry() : "";
+
+        // Form container (for new card entry). When saved card exists, hide and exclude from
+        // layout so dialog stays compact; when user clicks "Use different card", show and resize.
+        VBox formBox = new VBox(15);
+        formBox.setVisible(!hasSavedCard);
+        formBox.setManaged(!hasSavedCard);
+
+        // Form fields (declared before if-block so "Use different card" can reference rememberCardBox)
         TextField cardField = new TextField();
         cardField.setPromptText("Credit Card Number (13-16 digits)");
         cardField.setStyle("-fx-background-color: white; -fx-text-fill: #2c3e50; -fx-prompt-text-fill: #95a5a6;");
@@ -602,7 +629,6 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
         Label errorLabel = new Label();
         errorLabel.setStyle("-fx-text-fill: #e74c3c;");
 
-        // Buttons
         HBox btnBox = new HBox(10);
         btnBox.setAlignment(javafx.geometry.Pos.CENTER_RIGHT);
 
@@ -628,10 +654,40 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
         });
 
         btnBox.getChildren().addAll(cancelBtn, payBtn);
-        root.getChildren().addAll(title, summary, cardField, idField, row, rememberCardBox, errorLabel, btnBox);
+
+        if (hasSavedCard) {
+            VBox savedCardBox = new VBox(8);
+            savedCardBox.setStyle("-fx-background-color: #e8f5e9; -fx-padding: 12; -fx-background-radius: 8; -fx-border-color: #c8e6c9; -fx-border-radius: 8;");
+            Label savedCardLabel = new Label(String.format("Saved card: **** **** **** %s  (Exp: %s)", profile.getCardLast4(), savedExpiry));
+            savedCardLabel.setStyle("-fx-text-fill: #2e7d32; -fx-font-size: 14px;");
+            HBox savedCardBtnRow = new HBox(10);
+            Button payWithSavedBtn = new Button("Pay with saved card");
+            payWithSavedBtn.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold;");
+            payWithSavedBtn.setOnAction(e -> {
+                dialog.close();
+                handlePurchase(cityId, months, true, profile.getCardLast4(), savedExpiry);
+            });
+            Button useDifferentBtn = new Button("Use different card");
+            useDifferentBtn.setStyle("-fx-background-color: #95a5a6; -fx-text-fill: white;");
+            useDifferentBtn.setOnAction(e -> {
+                savedCardBox.setVisible(false);
+                savedCardBox.setManaged(false);
+                formBox.setVisible(true);
+                formBox.setManaged(true);
+                rememberCardBox.setSelected(true);
+                Platform.runLater(dialog::sizeToScene);
+            });
+            savedCardBtnRow.getChildren().addAll(payWithSavedBtn, useDifferentBtn);
+            savedCardBox.getChildren().addAll(savedCardLabel, savedCardBtnRow);
+            root.getChildren().add(savedCardBox);
+        }
+
+        formBox.getChildren().addAll(cardField, idField, row, rememberCardBox, errorLabel, btnBox);
+        root.getChildren().add(formBox);
 
         Scene scene = new Scene(root);
         dialog.setScene(scene);
+        dialog.sizeToScene();
         dialog.showAndWait();
     }
 

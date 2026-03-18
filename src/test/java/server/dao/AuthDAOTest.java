@@ -75,7 +75,8 @@ public class AuthDAOTest {
                 "testpass123",
                 "0501234567",
                 "tok_mock_test",
-                "4242");
+                "4242",
+                null);
 
         assertTrue(userId > 0, "Should create new customer and return positive ID");
 
@@ -101,6 +102,7 @@ public class AuthDAOTest {
                 "pass1234",
                 null,
                 null,
+                null,
                 null);
 
         assertEquals(-1, userId, "Should fail with duplicate username");
@@ -120,6 +122,7 @@ public class AuthDAOTest {
                 "unique_" + System.currentTimeMillis(),
                 "customer@gcm.com", // Existing email from seed data
                 "pass1234",
+                null,
                 null,
                 null,
                 null);

@@ -33,3 +33,11 @@
     -fx-border-color: transparent;
     -fx-background-color: transparent;
 }
+
+/* Register page: checkbox box white */
+.white-checkbox .box {
+    -fx-background-color: white;
+    -fx-border-color: #dcdde1;
+    -fx-border-radius: 3;
+    -fx-background-radius: 3;
+}

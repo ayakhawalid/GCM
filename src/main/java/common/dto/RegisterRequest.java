@@ -14,18 +14,25 @@ public class RegisterRequest implements Serializable {
     private String phone;
     private String paymentToken; // Mock payment token
     private String cardLast4; // Last 4 digits of card
+    private String cardExpiry; // MM/YY
 
     public RegisterRequest() {
     }
 
     public RegisterRequest(String username, String email, String password,
             String phone, String paymentToken, String cardLast4) {
+        this(username, email, password, phone, paymentToken, cardLast4, null);
+    }
+
+    public RegisterRequest(String username, String email, String password,
+            String phone, String paymentToken, String cardLast4, String cardExpiry) {
         this.username = username;
         this.email = email;
         this.password = password;
         this.phone = phone;
         this.paymentToken = paymentToken;
         this.cardLast4 = cardLast4;
+        this.cardExpiry = cardExpiry;
     }
 
     // Getters and Setters
@@ -75,6 +82,14 @@ public class RegisterRequest implements Serializable {
 
     public void setCardLast4(String cardLast4) {
         this.cardLast4 = cardLast4;
+    }
+
+    public String getCardExpiry() {
+        return cardExpiry;
+    }
+
+    public void setCardExpiry(String cardExpiry) {
+        this.cardExpiry = cardExpiry;
     }
 
     @Override

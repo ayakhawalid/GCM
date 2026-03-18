@@ -80,7 +80,8 @@ public class AuthHandler {
                 reg.getPassword(),
                 reg.getPhone(),
                 reg.getPaymentToken() != null ? reg.getPaymentToken() : "tok_mock_" + System.currentTimeMillis(),
-                reg.getCardLast4() != null ? reg.getCardLast4() : "0000");
+                reg.getCardLast4() != null ? reg.getCardLast4() : "0000",
+                reg.getCardExpiry());
 
         if (userId < 0) {
             return Response.error(request, Response.ERR_DATABASE, "Failed to create customer account");

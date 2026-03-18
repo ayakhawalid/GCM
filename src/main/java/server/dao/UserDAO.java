@@ -177,7 +177,7 @@ public class UserDAO {
      * @return Created user ID, or -1 if failed
      */
     public static int createCustomer(String username, String email, String password,
-            String phone, String paymentToken, String cardLast4) {
+            String phone, String paymentToken, String cardLast4, String cardExpiry) {
         Connection conn = null;
         try {
             conn = DBConnector.getConnection();
@@ -201,11 +201,12 @@ public class UserDAO {
             int userId = keys.getInt(1);
 
             // 2. Create customer record
-            String customerSql = "INSERT INTO customers (user_id, payment_token, card_last4) VALUES (?, ?, ?)";
+            String customerSql = "INSERT INTO customers (user_id, payment_token, card_last4, card_expiry) VALUES (?, ?, ?, ?)";
             PreparedStatement custStmt = conn.prepareStatement(customerSql);
             custStmt.setInt(1, userId);
             custStmt.setString(2, paymentToken);
             custStmt.setString(3, cardLast4);
+            custStmt.setString(4, cardExpiry != null && !cardExpiry.isEmpty() ? cardExpiry : null);
             custStmt.executeUpdate();
 
             conn.commit();
