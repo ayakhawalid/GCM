@@ -1,5 +1,6 @@
 package client.boundary;
 
+import client.GCMClient;
 import client.MenuNavigationHelper;
 import client.control.SearchControl;
 import common.dto.CitySearchResult;
@@ -294,7 +295,7 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
 
     private void connectToServer() {
         try {
-            searchControl = new SearchControl("localhost", 5555);
+            searchControl = new SearchControl(GCMClient.getConfiguredHost(), GCMClient.getConfiguredPort());
             searchControl.setResultCallback(this);
             updateStatus("Connected to server. Ready to search!", "#27ae60");
             // Load all cities immediately on page render (replaces old Show All button).

@@ -1,5 +1,6 @@
 package client.boundary;
 
+import client.GCMClient;
 import client.LoginController;
 import client.MenuNavigationHelper;
 import client.control.ContentManagementControl;
@@ -215,7 +216,7 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
 
         // Connect to server
         try {
-            control = new ContentManagementControl("localhost", 5555);
+            control = new ContentManagementControl(GCMClient.getConfiguredHost(), GCMClient.getConfiguredPort());
             control.setCallback(this);
 
             // Load cities and user-level draft (e.g. delete-city-only)

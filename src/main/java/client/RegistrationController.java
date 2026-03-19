@@ -1,5 +1,6 @@
 package client;
 
+import client.GCMClient;
 import common.MessageType;
 import common.Request;
 import common.Response;
@@ -441,7 +442,7 @@ public class RegistrationController {
 
         // Send to server
         try {
-            Socket socket = new Socket("localhost", 5555);
+            Socket socket = new Socket(GCMClient.getConfiguredHost(), GCMClient.getConfiguredPort());
             ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
 

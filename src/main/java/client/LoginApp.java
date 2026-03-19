@@ -9,7 +9,9 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
+import java.util.Properties;
 
 /**
  * Main application class to launch the Login page.
@@ -64,11 +66,35 @@ public class LoginApp extends Application {
      * <p>
      * Or set system properties: {@code -Dgcm.server.host=192.168.1.50 -Dgcm.server.port=5555}
      * <p>
-     * Command-line args override system properties when both are present.
+     * Optional classpath file {@code /gcm-client.properties} ({@code gcm.server.host},
+     * {@code gcm.server.port}) sets defaults before system properties (edit without recompiling when IP changes).
+     * <p>
+     * Precedence (lowest to highest): built-in default → {@code gcm-client.properties} → {@code -D} → CLI args.
      */
     private void applyServerEndpointFromArgsAndSystemProperties() {
         String host = "localhost";
         int port = 5555;
+
+        try (InputStream in = LoginApp.class.getResourceAsStream("/gcm-client.properties")) {
+            if (in != null) {
+                Properties p = new Properties();
+                p.load(in);
+                String fileHost = p.getProperty("gcm.server.host");
+                if (fileHost != null && !fileHost.isBlank()) {
+                    host = fileHost.trim();
+                }
+                String filePort = p.getProperty("gcm.server.port");
+                if (filePort != null && !filePort.isBlank()) {
+                    try {
+                        port = Integer.parseInt(filePort.trim());
+                    } catch (NumberFormatException ignored) {
+                        /* keep default */
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("GCM: could not read gcm-client.properties: " + e.getMessage());
+        }
 
         String propHost = System.getProperty("gcm.server.host");
         if (propHost != null && !propHost.isBlank()) {

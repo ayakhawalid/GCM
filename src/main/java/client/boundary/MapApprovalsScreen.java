@@ -1,5 +1,6 @@
 package client.boundary;
 
+import client.GCMClient;
 import client.LoginController;
 import client.MenuNavigationHelper;
 import client.control.ContentManagementControl;
@@ -72,7 +73,7 @@ public class MapApprovalsScreen implements ContentManagementControl.ContentCallb
         applyNavbarLogoSvg();
         MenuNavigationHelper.configureSidebarButtons(mapEditorNavBtn, myPurchasesNavBtn, profileNavBtn, customersNavBtn, pricingNavBtn, pricingApprovalNavBtn, supportNavBtn, agentConsoleNavBtn, editApprovalsNavBtn, reportsNavBtn, userManagementNavBtn);
         try {
-            control = new ContentManagementControl("localhost", 5555);
+            control = new ContentManagementControl(GCMClient.getConfiguredHost(), GCMClient.getConfiguredPort());
             control.setCallback(this);
             setupListView();
             handleRefresh();
