@@ -209,7 +209,7 @@ public class SearchDAO {
 
         // First, find all maps that contain matching POIs
         String query = "SELECT DISTINCT c.id as city_id, c.name as city_name, c.description as city_desc, c.price, " +
-                "       m.id as map_id, m.name as map_name, m.short_description as map_desc " +
+                "       m.id as map_id, m.name as map_name, m.short_description as map_desc, COALESCE(m.tour_id, 0) as tour_id " +
                 "FROM cities c " +
                 "JOIN maps m ON m.city_id = c.id " +
                 "JOIN map_pois mp ON mp.map_id = m.id AND mp.approved = 1 " +
@@ -253,6 +253,11 @@ public class SearchDAO {
                         rs.getString("map_desc"),
                         poiCount,
                         tourCount);
+                try {
+                    int tid = rs.getInt("tour_id");
+                    mapSummary.setTourId(tid > 0 ? tid : null);
+                } catch (SQLException ignored) {
+                }
 
                 cityResult.addMap(mapSummary);
             }
@@ -293,7 +298,7 @@ public class SearchDAO {
         }
 
         String query = "SELECT DISTINCT c.id as city_id, c.name as city_name, c.description as city_desc, c.price, " +
-                "       m.id as map_id, m.name as map_name, m.short_description as map_desc " +
+                "       m.id as map_id, m.name as map_name, m.short_description as map_desc, COALESCE(m.tour_id, 0) as tour_id " +
                 "FROM cities c " +
                 "JOIN maps m ON m.city_id = c.id " +
                 "JOIN map_pois mp ON mp.map_id = m.id AND mp.approved = 1 " +
@@ -339,6 +344,11 @@ public class SearchDAO {
                         rs.getString("map_desc"),
                         poiCount,
                         tourCount);
+                try {
+                    int tid = rs.getInt("tour_id");
+                    mapSummary.setTourId(tid > 0 ? tid : null);
+                } catch (SQLException ignored) {
+                }
 
                 cityResult.addMap(mapSummary);
             }
@@ -364,7 +374,7 @@ public class SearchDAO {
         List<MapSummary> maps = new ArrayList<>();
 
         // Catalog: only approved maps (customers must not see draft/unapproved maps)
-        String query = "SELECT m.id, m.name, m.short_description, " +
+        String query = "SELECT m.id, m.name, m.short_description, COALESCE(m.tour_id, 0) as tour_id, " +
                 "(SELECT COUNT(*) FROM map_pois mp WHERE mp.map_id = m.id AND mp.approved = 1) as poi_count " +
                 "FROM maps m WHERE m.city_id = ? AND m.approved = 1 ORDER BY m.name";
 
@@ -375,12 +385,18 @@ public class SearchDAO {
         int tourCount = getTourCountForCity(conn, cityId);
 
         while (rs.next()) {
-            maps.add(new MapSummary(
+            MapSummary s = new MapSummary(
                     rs.getInt("id"),
                     rs.getString("name"),
                     rs.getString("short_description"),
                     rs.getInt("poi_count"),
-                    tourCount));
+                    tourCount);
+            try {
+                int tid = rs.getInt("tour_id");
+                s.setTourId(tid > 0 ? tid : null);
+            } catch (SQLException ignored) {
+            }
+            maps.add(s);
         }
 
         return maps;
@@ -399,12 +415,23 @@ public class SearchDAO {
             ResultSet rs = stmt.executeQuery();
             int tourCount = getTourCountForCity(conn, cityId);
             while (rs.next()) {
-                maps.add(new MapSummary(
+                MapSummary s = new MapSummary(
                         rs.getInt("id"),
                         rs.getString("name"),
                         rs.getString("short_description"),
                         rs.getInt("poi_count"),
-                        tourCount));
+                        tourCount);
+                // Try to resolve tour_id if the column exists (older DBs may not have it)
+                try (PreparedStatement tStmt = conn.prepareStatement("SELECT tour_id FROM maps WHERE id = ?")) {
+                    tStmt.setInt(1, rs.getInt("id"));
+                    ResultSet tRs = tStmt.executeQuery();
+                    if (tRs.next()) {
+                        Integer tidObj = (Integer) tRs.getObject(1);
+                        s.setTourId(tidObj != null && tidObj > 0 ? tidObj : null);
+                    }
+                } catch (SQLException ignored) {
+                }
+                maps.add(s);
             }
             return maps;
         } catch (SQLException e) {

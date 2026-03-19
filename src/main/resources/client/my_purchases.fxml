@@ -69,14 +69,13 @@
             <!-- One-Time Purchases Section -->
             <VBox spacing="10">
                 <Label text="One-Time Purchases" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #34495e;"/>
-                <Label text="One-time download per city. Click to download the map." 
+                <Label text="Purchase history per city. Open the maps viewer from the catalog after purchase; download is demo-only (⬇)." 
                        style="-fx-text-fill: #7f8c8d; -fx-font-style: italic;"/>
                 
                 <TableView fx:id="purchasesTable" VBox.vgrow="ALWAYS" prefHeight="200">
                     <columns>
                         <TableColumn fx:id="purchaseCityCol" text="City" prefWidth="200"/>
                         <TableColumn fx:id="purchaseDateCol" text="Purchased Date" prefWidth="150"/>
-                        <TableColumn fx:id="purchaseActionCol" text="Actions" prefWidth="150"/>
                     </columns>
                     <placeholder>
                         <Label text="No one-time purchases found."/>

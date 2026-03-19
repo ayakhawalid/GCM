@@ -109,6 +109,10 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
     /** When non-null, the map viewer popup is open; used to route GET_MAPS_FOR_CITY / GET_MAP_CONTENT responses. */
     private MapViewerPopupContext viewerPopup;
 
+    /** If set (e.g. after one-time purchase), auto-open map viewer for this city once purchases load. */
+    public static volatile Integer AUTO_OPEN_CITY_ID = null;
+    public static volatile String AUTO_OPEN_CITY_NAME = null;
+
     @FXML
     public void initialize() {
         applyNavbarLogoSvg();
@@ -166,33 +170,18 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
         centerTextColumn(purchaseCityCol);
         centerTextColumn(purchaseDateCol);
 
-        purchaseActionCol.setCellFactory(col -> new TableCell<PurchaseItem, String>() {
-            private final Button btn = new Button("Download map");
-            {
-                btn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white;");
-                btn.setOnAction(e -> {
-                    PurchaseItem row = getTableView().getItems().get(getIndex());
-                    handleDownload(row);
-                });
-            }
-
-            @Override
-            protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-                setAlignment(Pos.CENTER);
-                setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-                if (empty) {
+        // One-time purchases: no Actions column (removed from FXML). Keep null-safe for older FXMLs.
+        if (purchaseActionCol != null) {
+            purchaseActionCol.setCellFactory(col -> new TableCell<PurchaseItem, String>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    setAlignment(Pos.CENTER);
+                    setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
                     setGraphic(null);
-                } else {
-                    PurchaseItem row = getTableRow() != null ? getTableRow().getItem() : null;
-                    btn.setDisable(row != null && !row.canDownload);
-                    btn.setTooltip(
-                            row != null && !row.canDownload ? new Tooltip("One-time purchase: already downloaded")
-                                    : null);
-                    setGraphic(btn);
                 }
-            }
-        });
+            });
+        }
 
         subscriptionsTable.setItems(subscriptionsList);
         purchasesTable.setItems(purchasesList);
@@ -335,8 +324,22 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
 
         BorderPane root = new BorderPane();
         root.setCenter(split);
-        root.setBottom(popupStatusLabel);
-        BorderPane.setMargin(popupStatusLabel, new Insets(5, 10, 10, 10));
+        // Bottom bar: status + dummy download button (demo only)
+        Button dummyDownloadBtn = new Button("⬇");
+        dummyDownloadBtn.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #3498db; -fx-font-weight: bold; -fx-font-size: 22px; -fx-padding: 2 10; -fx-cursor: hand;");
+        dummyDownloadBtn.setMinWidth(52);
+        dummyDownloadBtn.setMinHeight(38);
+        Tooltip dlTip = new Tooltip("Download (demo only)");
+        dlTip.setStyle("-fx-text-fill: black; -fx-font-size: 12px; -fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0;");
+        dummyDownloadBtn.setTooltip(dlTip);
+        dummyDownloadBtn.setOnAction(e -> popupStatusLabel.setText("Downloaded (demo)."));
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox bottomBar = new HBox(10, popupStatusLabel, spacer, dummyDownloadBtn);
+        bottomBar.setAlignment(Pos.CENTER_LEFT);
+        BorderPane.setMargin(bottomBar, new Insets(5, 10, 10, 10));
+        root.setBottom(bottomBar);
         root.setStyle("-fx-background-color: #f5f6fa;");
 
         viewerPopup = new MapViewerPopupContext(popupStage, mapsListView, toursListView, poisListView, cityDescValueLabel, mapDescValueLabel, mapDescSection, mapPane, popupStatusLabel, cityName, token);
@@ -488,6 +491,30 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
                         populateTables(items);
                         statusLabel.setText("Loaded " + items.size() + " items");
                         statusLabel.setStyle("-fx-text-fill: green;");
+
+                        // Auto-open maps popup once (used after one-time purchase).
+                        if (AUTO_OPEN_CITY_ID != null) {
+                            Integer cityId = AUTO_OPEN_CITY_ID;
+                            String cityName = AUTO_OPEN_CITY_NAME;
+                            AUTO_OPEN_CITY_ID = null;
+                            AUTO_OPEN_CITY_NAME = null;
+
+                            if (cityName == null || cityName.isEmpty()) {
+                                for (EntitlementInfo e : items) {
+                                    if (e != null && e.getCityId() == cityId.intValue()) {
+                                        cityName = e.getCityName();
+                                        break;
+                                    }
+                                }
+                            }
+                            if (cityName == null || cityName.isEmpty()) {
+                                cityName = "City " + cityId;
+                            }
+                            String token = LoginController.currentSessionToken;
+                            if (token != null && !token.isEmpty()) {
+                                openMapViewerPopup(cityId, cityName, token);
+                            }
+                        }
                     }
                 }
             }
@@ -499,9 +526,12 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
         purchasesList.clear();
 
         for (EntitlementInfo item : items) {
-            String dateInfo = item.getExpiryDate() != null
-                    ? item.getExpiryDate().toString()
-                    : "Permanent";
+            String dateInfo;
+            if (item.isSubscription()) {
+                dateInfo = item.getExpiryDate() != null ? item.getExpiryDate().toString() : "";
+            } else {
+                dateInfo = item.getPurchaseDate() != null ? item.getPurchaseDate().toString() : "";
+            }
             String status = item.isActive() ? (item.isCanceled() ? "Canceled" : "Active") : "Expired";
 
             PurchaseItem pi = new PurchaseItem(

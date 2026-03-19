@@ -6,6 +6,7 @@ import common.dto.CitySearchResult;
 import common.dto.CustomerProfileDTO;
 import common.dto.MapSummary;
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -80,6 +81,8 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
     private ListView<CitySearchResult> resultsListView;
     @FXML
     private ListView<MapSummary> mapsListView;
+    @FXML
+    private ListView<MapSummary> toursListView;
 
     @FXML
     private VBox detailsCard;
@@ -106,6 +109,12 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
     private SearchControl searchControl;
     private ObservableList<CitySearchResult> searchResults;
     private ObservableList<MapSummary> mapsList;
+    private ObservableList<MapSummary> toursList;
+
+    // List sizing (auto grow/shrink based on items)
+    private static final double LIST_CELL_HEIGHT = 34.0;
+    private static final double LIST_MIN_HEIGHT = 80.0;
+    private static final double LIST_MAX_HEIGHT = 520.0;
     private static final String BACK_BTN_BASE_STYLE =
             "-fx-background-color: transparent; -fx-border-color: transparent; -fx-text-fill: #7f8c8d; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 10; -fx-padding: 6 10;";
     private static final String BACK_BTN_HOVER_STYLE =
@@ -128,9 +137,18 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
         MenuNavigationHelper.configureSidebarButtons(mapEditorNavBtn, myPurchasesNavBtn, profileNavBtn, customersNavBtn, pricingNavBtn, pricingApprovalNavBtn, supportNavBtn, agentConsoleNavBtn, editApprovalsNavBtn, reportsNavBtn, userManagementNavBtn);
         searchResults = FXCollections.observableArrayList();
         mapsList = FXCollections.observableArrayList();
+        toursList = FXCollections.observableArrayList();
 
         resultsListView.setItems(searchResults);
         mapsListView.setItems(mapsList);
+        if (toursListView != null) {
+            toursListView.setItems(toursList);
+        }
+
+        configureAutoSizingList(mapsListView, mapsList);
+        if (toursListView != null) {
+            configureAutoSizingList(toursListView, toursList);
+        }
 
         // Custom cell factory for results list
         resultsListView.setCellFactory(lv -> new ListCell<CitySearchResult>() {
@@ -172,6 +190,26 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
             }
         });
 
+        if (toursListView != null) {
+            toursListView.setCellFactory(lv -> new ListCell<MapSummary>() {
+                @Override
+                protected void updateItem(MapSummary item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || item == null) {
+                        setText(null);
+                        setStyle("-fx-background-color: transparent;");
+                    } else {
+                        setText(item.getName());
+                        if (isSelected()) {
+                            setStyle("-fx-text-fill: #2c3e50; -fx-font-size: 13px; -fx-padding: 8; -fx-background-color: #dfe4ea; -fx-background-radius: 4;");
+                        } else {
+                            setStyle("-fx-text-fill: #2c3e50; -fx-font-size: 13px; -fx-padding: 8; -fx-background-color: transparent;");
+                        }
+                    }
+                }
+            });
+        }
+
         // Selection listeners
         resultsListView.getSelectionModel().selectedItemProperty().addListener(
                 (obs, oldVal, newVal) -> {
@@ -180,7 +218,20 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
                 });
 
         mapsListView.getSelectionModel().selectedItemProperty().addListener(
-                (obs, oldVal, newVal) -> showMapDetails(newVal));
+                (obs, oldVal, newVal) -> {
+                    if (newVal != null && toursListView != null) {
+                        toursListView.getSelectionModel().clearSelection();
+                    }
+                    showMapDetails(newVal);
+                });
+        if (toursListView != null) {
+            toursListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+                if (newVal != null) {
+                    mapsListView.getSelectionModel().clearSelection();
+                }
+                showMapDetails(newVal);
+            });
+        }
 
         // Search mode change listeners
         searchModeGroup.selectedToggleProperty().addListener((obs, oldVal, newVal) -> {
@@ -195,6 +246,21 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
 
         // Connect to server
         connectToServer();
+    }
+
+    private static void configureAutoSizingList(ListView<?> listView, ObservableList<?> backingList) {
+        if (listView == null || backingList == null) return;
+        listView.setFixedCellSize(LIST_CELL_HEIGHT);
+        listView.prefHeightProperty().bind(Bindings.createDoubleBinding(() -> {
+            int n = backingList.size();
+            // +2 gives a bit of breathing room for borders/padding
+            double h = (n + 2) * LIST_CELL_HEIGHT;
+            if (h < LIST_MIN_HEIGHT) h = LIST_MIN_HEIGHT;
+            if (h > LIST_MAX_HEIGHT) h = LIST_MAX_HEIGHT;
+            return h;
+        }, backingList));
+        listView.setMinHeight(LIST_MIN_HEIGHT);
+        listView.setMaxHeight(LIST_MAX_HEIGHT);
     }
 
     private void setActiveGuestNavButton(Button button) {
@@ -445,9 +511,18 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
             discountMessageLabel.setManaged(false);
         }
 
-        // Maps
+        // Maps / Tours
         mapsList.clear();
-        mapsList.addAll(city.getMaps());
+        toursList.clear();
+        if (city.getMaps() != null) {
+            for (MapSummary m : city.getMaps()) {
+                if (m != null && m.getTourId() != null && m.getTourId() > 0) {
+                    toursList.add(m);
+                } else {
+                    mapsList.add(m);
+                }
+            }
+        }
         mapDetailsBox.setVisible(false);
         mapDetailsBox.setManaged(false);
 
@@ -785,6 +860,16 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
             if (searchControl != null) {
                 searchControl.sendPurchaseRequest(req);
                 updateStatus("Payment success! Purchase complete.", "#27ae60");
+
+                // One-time: immediately open maps popup (no DB change, dummy download button inside popup).
+                if (months == 0) {
+                    try {
+                        client.boundary.MyPurchasesScreen.AUTO_OPEN_CITY_ID = cityId;
+                        client.boundary.MyPurchasesScreen.AUTO_OPEN_CITY_NAME = cityNameLabel != null ? cityNameLabel.getText() : null;
+                    } catch (Exception ignored) {
+                    }
+                    MenuNavigationHelper.navigateToMyPurchases(guestDashboardPane);
+                }
             }
         } catch (Exception e) {
             updateStatus("Purchase failed: " + e.getMessage(), "red");
@@ -804,7 +889,12 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
         mapNameLabel.setText(map.getName());
         mapDescLabel.setText(map.getShortDescription() != null ? map.getShortDescription() : "No description");
         poiCountLabel.setText("📍 " + map.getPoiCount() + " Points of Interest");
-        tourCountLabel.setText("🚶 " + map.getTourCount() + " Tours");
+        // Requirement: show description + POI count when selecting map/tour
+        if (tourCountLabel != null) {
+            tourCountLabel.setText("");
+            tourCountLabel.setVisible(false);
+            tourCountLabel.setManaged(false);
+        }
     }
 
     private void updateStatus(String message, String color) {
