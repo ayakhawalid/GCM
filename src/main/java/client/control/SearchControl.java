@@ -94,7 +94,7 @@ public class SearchControl implements GCMClient.MessageHandler {
         String token = LoginController.currentSessionToken;
         if (token == null || token.isEmpty()) {
             if (resultCallback != null)
-                resultCallback.onDiscountEligibility(new common.dto.DiscountEligibilityResponse(false, cityId, months));
+                resultCallback.onDiscountEligibility(new common.dto.DiscountEligibilityResponse(false, false, cityId, months));
             return;
         }
 
@@ -185,7 +185,7 @@ public class SearchControl implements GCMClient.MessageHandler {
                 resultCallback.onDiscountEligibility((common.dto.DiscountEligibilityResponse) response.getPayload());
             } else {
                 // Default to no discount on error
-                resultCallback.onDiscountEligibility(new common.dto.DiscountEligibilityResponse(false, 0, 0));
+                resultCallback.onDiscountEligibility(new common.dto.DiscountEligibilityResponse(false, false, 0, 0));
             }
             return;
         }

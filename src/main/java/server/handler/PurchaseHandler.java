@@ -190,9 +190,9 @@ public class PurchaseHandler {
             if (request.getPayload() instanceof common.dto.DiscountCheckRequest) {
                 common.dto.DiscountCheckRequest check = (common.dto.DiscountCheckRequest) request.getPayload();
                 return Response.success(request,
-                        new common.dto.DiscountEligibilityResponse(false, check.getCityId(), check.getMonths()));
+                        new common.dto.DiscountEligibilityResponse(false, false, check.getCityId(), check.getMonths()));
             }
-            return Response.success(request, new common.dto.DiscountEligibilityResponse(false, 0, 0));
+            return Response.success(request, new common.dto.DiscountEligibilityResponse(false, false, 0, 0));
         }
 
         if (!(request.getPayload() instanceof common.dto.DiscountCheckRequest)) {
@@ -201,11 +201,16 @@ public class PurchaseHandler {
 
         common.dto.DiscountCheckRequest check = (common.dto.DiscountCheckRequest) request.getPayload();
 
-        // Relies exclusively on backend DAO validation
-        boolean isEligible = PurchaseDAO.hasActiveExpiringSubscription(userId, check.getCityId(), check.getMonths());
+        // Controls the label:
+        // - renew label => user has active subscription for exact city + months
+        boolean renewalEligible = PurchaseDAO.hasActiveSubscriptionForDuration(userId, check.getCityId(), check.getMonths());
+
+        // Controls the discount:
+        // - 10% discount => user has an active subscription for the same city+months
+        boolean discountEligible = PurchaseDAO.hasActiveSubscriptionForDuration(userId, check.getCityId(), check.getMonths());
 
         return Response.success(request,
-                new common.dto.DiscountEligibilityResponse(isEligible, check.getCityId(), check.getMonths()));
+                new common.dto.DiscountEligibilityResponse(renewalEligible, discountEligible, check.getCityId(), check.getMonths()));
     }
 
     private static Response handleCanDownload(Request request) {

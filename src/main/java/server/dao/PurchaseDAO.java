@@ -86,7 +86,7 @@ public class PurchaseDAO {
      */
     public static boolean hasActiveExpiringSubscription(int userId, int cityId, int months) {
         String sql = "SELECT 1 FROM subscriptions " +
-                "WHERE user_id = ? AND city_id = ? AND months = ? AND is_active = TRUE " +
+                "WHERE user_id = ? AND city_id = ? AND months = ? " +
                 "AND end_date > CURDATE() AND DATEDIFF(end_date, CURDATE()) <= 3 LIMIT 1";
         try (Connection conn = DBConnector.getConnection();
                 PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -96,6 +96,26 @@ public class PurchaseDAO {
             return stmt.executeQuery().next();
         } catch (SQLException e) {
             System.err.println("Error checking active expiring subscription: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Check if user has an active subscription for this city and exact duration.
+     * Used to decide whether to show "Renew subscription..." in the catalog.
+     */
+    public static boolean hasActiveSubscriptionForDuration(int userId, int cityId, int months) {
+        String sql = "SELECT 1 FROM subscriptions " +
+                "WHERE user_id = ? AND city_id = ? AND months = ? " +
+                "AND end_date > CURDATE() LIMIT 1";
+        try (Connection conn = DBConnector.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, userId);
+            stmt.setInt(2, cityId);
+            stmt.setInt(3, months);
+            return stmt.executeQuery().next();
+        } catch (SQLException e) {
+            System.err.println("Error checking active subscription duration: " + e.getMessage());
             return false;
         }
     }
@@ -128,16 +148,17 @@ public class PurchaseDAO {
                 ResultSet rs = findStmt.executeQuery();
                 if (rs.next()) {
                     int subId = rs.getInt("id");
-                    // Apply 10% discount if renewing same duration within 3 days of expiry
-                    if (hasActiveExpiringSubscription(userId, cityId, months)) {
+                    // Apply 10% discount when renewing same city+duration (active subscription for that duration)
+                    if (hasActiveSubscriptionForDuration(userId, cityId, months)) {
                         price = price * 0.90;
                     }
                     String extend = "UPDATE subscriptions SET end_date = DATE_ADD(end_date, INTERVAL ? MONTH), " +
-                            "price_paid = price_paid + ? WHERE id = ?";
+                            "price_paid = price_paid + ?, months = ?, is_active = TRUE WHERE id = ?";
                     try (PreparedStatement updateStmt = conn.prepareStatement(extend)) {
                         updateStmt.setInt(1, months);
                         updateStmt.setDouble(2, price);
-                        updateStmt.setInt(3, subId);
+                        updateStmt.setInt(3, months);
+                        updateStmt.setInt(4, subId);
                         int affected = updateStmt.executeUpdate();
                         return affected > 0;
                     }
@@ -145,11 +166,11 @@ public class PurchaseDAO {
             }
 
             // No active subscription: insert new row
-            if (hasActiveExpiringSubscription(userId, cityId, months)) {
+            if (hasActiveSubscriptionForDuration(userId, cityId, months)) {
                 price = price * 0.90;
             }
-            String query = "INSERT INTO subscriptions (user_id, city_id, months, price_paid, start_date, end_date) " +
-                    "VALUES (?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL ? MONTH))";
+            String query = "INSERT INTO subscriptions (user_id, city_id, months, price_paid, start_date, end_date, is_active) " +
+                    "VALUES (?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL ? MONTH), TRUE)";
             try (PreparedStatement stmt = conn.prepareStatement(query)) {
                 stmt.setInt(1, userId);
                 stmt.setInt(2, cityId);
@@ -561,8 +582,7 @@ public class PurchaseDAO {
                 FROM subscriptions s
                 JOIN users u ON s.user_id = u.id
                 JOIN cities c ON s.city_id = c.id
-                WHERE s.is_active = TRUE
-                AND s.end_date > CURDATE()
+                WHERE s.end_date > CURDATE()
                 AND DATEDIFF(s.end_date, CURDATE()) <= ?
                 ORDER BY s.end_date ASC
                 """;

@@ -408,6 +408,7 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
 
     private boolean isEligibleForDiscount = false;
     private Label discountMessageLabel;
+    private boolean isRenewalEligible = false;
 
     private Button activeSubscriptionButton;
     private int activeSubscriptionMonths;
@@ -438,6 +439,7 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
 
         // Reset discount state for the newly displayed city.
         isEligibleForDiscount = false;
+        isRenewalEligible = false;
         if (discountMessageLabel != null) {
             discountMessageLabel.setVisible(false);
             discountMessageLabel.setManaged(false);
@@ -517,6 +519,7 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
                 double p = newVal == 1 ? price1m : (newVal == 3 ? price3m : price6m);
                 // Reset to non-renew until server confirms eligibility.
                 isEligibleForDiscount = false;
+                isRenewalEligible = false;
                 if (discountMessageLabel != null) {
                     discountMessageLabel.setVisible(false);
                     discountMessageLabel.setManaged(false);
@@ -844,7 +847,8 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
                 return;
             }
 
-            this.isEligibleForDiscount = response.isEligible();
+            this.isEligibleForDiscount = response.isDiscountEligible();
+            this.isRenewalEligible = response.isRenewalEligible();
 
             if (discountMessageLabel != null) {
                 if (isEligibleForDiscount) {
@@ -861,10 +865,11 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
             if (activeSubscriptionButton != null) {
                 int m = activeSubscriptionMonths;
                 double original = activeSubscriptionOriginalPrice;
+                double shownPrice = isEligibleForDiscount ? original * 0.90 : original;
                 activeSubscriptionButton.setText(
-                        isEligibleForDiscount
-                                ? String.format("Renew subscription for %d %s",
-                                        m, m == 1 ? "month" : "months")
+                        isRenewalEligible
+                                ? String.format("Renew subscription for %d %s ($%.2f)",
+                                        m, m == 1 ? "month" : "months", shownPrice)
                                 : String.format("Subscribe for %d %s ($%.2f)",
                                         m, m == 1 ? "month" : "months", original));
             }
