@@ -26,6 +26,7 @@ import javafx.scene.Group;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.DateCell;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -111,6 +112,12 @@ public class ReportsController implements GCMClient.MessageHandler {
     private GCMClient client;
     private static ExecutorService reportExecutor;
 
+    /**
+     * Latest allowed "To" date for reports: fixed at screen load (same as initial default end date).
+     * End dates after this are treated as illegal (no future-dated reporting window).
+     */
+    private LocalDate reportMaxEndDate;
+
     private static synchronized ExecutorService getReportExecutor() {
         if (reportExecutor == null) {
             reportExecutor = Executors.newSingleThreadExecutor(r -> {
@@ -136,7 +143,11 @@ public class ReportsController implements GCMClient.MessageHandler {
         MenuNavigationHelper.configureSidebarButtons(mapEditorNavBtn, myPurchasesNavBtn, profileNavBtn, customersNavBtn, pricingNavBtn, pricingApprovalNavBtn, supportNavBtn, agentConsoleNavBtn, editApprovalsNavBtn, reportsNavBtn, userManagementNavBtn);
         try {
             if (startDatePicker != null) startDatePicker.setValue(LocalDate.now().minusDays(30));
-            if (endDatePicker != null) endDatePicker.setValue(LocalDate.now());
+            if (endDatePicker != null) {
+                endDatePicker.setValue(LocalDate.now());
+                reportMaxEndDate = endDatePicker.getValue();
+                configureEndDatePickerBounds();
+            }
         } catch (Exception e) { /* ignore */ }
         try {
             if (cityComboBox != null) configureCityComboBox();
@@ -246,6 +257,44 @@ public class ReportsController implements GCMClient.MessageHandler {
         lineChartPane = new Pane();
         lineChartPane.setStyle("-fx-background-color: white;");
         lineChartPane.setMinSize(CHART_MIN_WIDTH, CHART_MIN_HEIGHT);
+    }
+
+    /** Disallow choosing an end date after the default that was set when the screen opened. */
+    private void configureEndDatePickerBounds() {
+        if (endDatePicker == null || reportMaxEndDate == null) return;
+
+        final LocalDate maxEnd = reportMaxEndDate;
+        endDatePicker.setDayCellFactory(picker -> new DateCell() {
+            @Override
+            public void updateItem(LocalDate date, boolean empty) {
+                super.updateItem(date, empty);
+                if (!empty && date != null && date.isAfter(maxEnd)) {
+                    setDisable(true);
+                    setStyle("-fx-background-color: #ececec;");
+                }
+            }
+        });
+
+        endDatePicker.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal == null) return;
+            if (newVal.isAfter(maxEnd)) {
+                Platform.runLater(() -> {
+                    endDatePicker.setValue(oldVal != null ? oldVal : maxEnd);
+                    showValidationAlert(
+                            "Please pick a legal end date.",
+                            "The report period cannot end after " + maxEnd
+                                    + " (today when this screen was opened). Pick an end date on or before that day.");
+                });
+            }
+        });
+    }
+
+    private void showValidationAlert(String header, String message) {
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle("Invalid end date");
+        alert.setHeaderText(header);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 
     private void configureCityComboBox() {
@@ -413,6 +462,14 @@ public class ReportsController implements GCMClient.MessageHandler {
 
         if (from.isAfter(to)) {
             showAlert("Validation Error", "Start date cannot be after end date.");
+            return;
+        }
+
+        if (reportMaxEndDate != null && to.isAfter(reportMaxEndDate)) {
+            showValidationAlert(
+                    "Please pick a legal end date.",
+                    "The report period cannot end after " + reportMaxEndDate
+                            + ". Pick an end date on or before that day.");
             return;
         }
 

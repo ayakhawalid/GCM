@@ -297,10 +297,11 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
             searchControl = new SearchControl("localhost", 5555);
             searchControl.setResultCallback(this);
             updateStatus("Connected to server. Ready to search!", "#27ae60");
+            // Load all cities immediately on page render (replaces old Show All button).
+            searchControl.getCatalog();
         } catch (IOException e) {
             updateStatus("Could not connect to server. Is it running?", "#e74c3c");
-            searchButton.setDisable(true);
-            showAllButton.setDisable(true);
+            if (searchButton != null) searchButton.setDisable(true);
         }
     }
 
@@ -358,7 +359,6 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
             updateStatus("Not connected to server", "#e74c3c");
             return;
         }
-
         updateStatus("Loading catalog...", "#667eea");
         searchControl.getCatalog();
     }
@@ -548,7 +548,7 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
         HBox optionsContainer = new HBox(15);
         optionsContainer.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
 
-        String commonBtnStyle = "-fx-font-size: 14px; -fx-padding: 8 15; -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 4;";
+        String commonBtnStyle = "-fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 8 15; -fx-text-fill: white; -fx-cursor: hand; -fx-background-radius: 4;";
 
         // One Time Option
         Button buyBtn = new Button(String.format("Buy One-Time ($%.2f)", basePrice));

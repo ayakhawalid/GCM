@@ -1276,6 +1276,8 @@ BEGIN
     DECLARE v_map_name VARCHAR(220);
     DECLARE v_tour_name VARCHAR(220);
     DECLARE v_poi_name VARCHAR(220);
+    DECLARE v_base_lat DOUBLE;
+    DECLARE v_base_lon DOUBLE;
     DECLARE v_lat DOUBLE;
     DECLARE v_lon DOUBLE;
 
@@ -1284,30 +1286,32 @@ BEGIN
         seq INT PRIMARY KEY,
         city_name VARCHAR(100) COLLATE utf8mb4_unicode_ci NOT NULL,
         city_desc VARCHAR(500) COLLATE utf8mb4_unicode_ci NOT NULL,
-        city_price DOUBLE NOT NULL
+        city_price DOUBLE NOT NULL,
+        base_lat DOUBLE NOT NULL,
+        base_lon DOUBLE NOT NULL
     );
 
-    INSERT INTO tmp_target_cities (seq, city_name, city_desc, city_price) VALUES
-        (1, 'Haifa', 'Beautiful port city on the Mediterranean coast with the famous Bahai Gardens', 150.00),
-        (2, 'Tel Aviv', 'The vibrant city that never sleeps - beaches, nightlife, and tech hub', 200.00),
-        (3, 'Jerusalem', 'The holy city with rich history and religious significance', 180.00),
-        (4, 'New York', 'The Big Apple - world capital of finance, culture, and diversity', 250.00),
-        (5, 'London', 'Historic capital of England with royal heritage and modern attractions', 220.00),
-        (6, 'Paris', 'The city of lights and love - art, cuisine, and romance', 230.00),
-        (7, 'Tokyo', 'Futuristic metropolis blending ancient traditions with cutting-edge technology', 280.00),
-        (8, 'Sakhnin', 'Historic Arab city in the Galilee known for culture, olive oil, and football', 120.00),
-        (9, 'Berlin', 'Dynamic capital with history, culture, and modern neighborhoods', 210.00),
-        (10, 'Rome', 'Ancient landmarks, art, and vibrant streets', 205.00),
-        (11, 'Barcelona', 'Mediterranean architecture, beaches, and vibrant boulevards', 215.00),
-        (12, 'Amsterdam', 'Canals, museums, and bike-friendly streets', 210.00),
-        (13, 'Prague', 'Historic old town, bridges, and castles', 195.00),
-        (14, 'Vienna', 'Imperial heritage, music, and elegant city center', 205.00),
-        (15, 'Madrid', 'Grand boulevards, plazas, and rich art scene', 200.00),
-        (16, 'Lisbon', 'Hillside views, trams, and Atlantic charm', 190.00),
-        (17, 'Athens', 'Ancient ruins mixed with modern urban life', 185.00),
-        (18, 'Istanbul', 'Crossroads of Europe and Asia with deep history', 225.00),
-        (19, 'Budapest', 'Danube riverfront, baths, and historic districts', 188.00),
-        (20, 'Dublin', 'Historic streets, parks, and lively culture', 192.00);
+    INSERT INTO tmp_target_cities (seq, city_name, city_desc, city_price, base_lat, base_lon) VALUES
+        (1, 'Haifa', 'Beautiful port city on the Mediterranean coast with the famous Bahai Gardens', 150.00, 32.806000, 34.988000),
+        (2, 'Tel Aviv', 'The vibrant city that never sleeps - beaches, nightlife, and tech hub', 200.00, 32.080000, 34.780000),
+        (3, 'Jerusalem', 'The holy city with rich history and religious significance', 180.00, 31.779000, 35.230000),
+        (4, 'New York', 'The Big Apple - world capital of finance, culture, and diversity', 250.00, 40.758000, -73.985000),
+        (5, 'London', 'Historic capital of England with royal heritage and modern attractions', 220.00, 51.507000, -0.127000),
+        (6, 'Paris', 'The city of lights and love - art, cuisine, and romance', 230.00, 48.856000, 2.352000),
+        (7, 'Tokyo', 'Futuristic metropolis blending ancient traditions with cutting-edge technology', 280.00, 35.676000, 139.760000),
+        (8, 'Sakhnin', 'Historic Arab city in the Galilee known for culture, olive oil, and football', 120.00, 32.864000, 35.297000),
+        (9, 'Berlin', 'Dynamic capital with history, culture, and modern neighborhoods', 210.00, 52.520000, 13.405000),
+        (10, 'Rome', 'Ancient landmarks, art, and vibrant streets', 205.00, 41.902000, 12.496000),
+        (11, 'Barcelona', 'Mediterranean architecture, beaches, and vibrant boulevards', 215.00, 41.385000, 2.173000),
+        (12, 'Amsterdam', 'Canals, museums, and bike-friendly streets', 210.00, 52.367000, 4.904000),
+        (13, 'Prague', 'Historic old town, bridges, and castles', 195.00, 50.075000, 14.438000),
+        (14, 'Vienna', 'Imperial heritage, music, and elegant city center', 205.00, 48.208000, 16.373000),
+        (15, 'Madrid', 'Grand boulevards, plazas, and rich art scene', 200.00, 40.416000, -3.703000),
+        (16, 'Lisbon', 'Hillside views, trams, and Atlantic charm', 190.00, 38.722000, -9.139000),
+        (17, 'Athens', 'Ancient ruins mixed with modern urban life', 185.00, 37.983000, 23.727000),
+        (18, 'Istanbul', 'Crossroads of Europe and Asia with deep history', 225.00, 41.008000, 28.978000),
+        (19, 'Budapest', 'Danube riverfront, baths, and historic districts', 188.00, 47.497000, 19.040000),
+        (20, 'Dublin', 'Historic streets, parks, and lively culture', 192.00, 53.349000, -6.260000);
 
     -- Rename old *_demo users if they exist and target names are free
     IF EXISTS (SELECT 1 FROM users WHERE username = 'customer_demo')
@@ -1458,7 +1462,7 @@ BEGIN
 
     -- Top-up data for 20 cities
     WHILE v_i <= 20 DO
-        SELECT city_name, city_desc INTO v_city_name, v_city_desc
+        SELECT city_name, city_desc, base_lat, base_lon INTO v_city_name, v_city_desc, v_base_lat, v_base_lon
         FROM tmp_target_cities WHERE seq = v_i;
 
         IF NOT EXISTS (
@@ -1506,8 +1510,10 @@ BEGIN
             SET v_p = 1;
             WHILE v_p <= 10 DO
                 SET v_poi_name = CONCAT(v_city_name, ' M', v_m, ' POI ', v_p);
-                SET v_lat = ROUND(30 + v_i + (v_m * 0.01) + (v_p * 0.0001), 6);
-                SET v_lon = ROUND(34 + v_i + (v_m * 0.01) + (v_p * 0.0001), 6);
+                -- Keep generated POIs inside each city by using a city-specific base coordinate
+                -- plus small deterministic offsets.
+                SET v_lat = ROUND(v_base_lat + ((v_m - 3) * 0.0060) + ((v_p - 5) * 0.0005), 6);
+                SET v_lon = ROUND(v_base_lon + ((v_m - 3) * 0.0060) + ((v_p - 5) * 0.0005), 6);
 
                 IF NOT EXISTS (
                     SELECT 1
