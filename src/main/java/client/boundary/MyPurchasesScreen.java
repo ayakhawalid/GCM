@@ -249,6 +249,11 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
             gcmClient.sendToServer(new Request(MessageType.DOWNLOAD_MAP_VERSION, item.cityId, token));
             statusLabel.setText(item.isSubscription ? "Opening " + item.cityName + " maps..."
                     : "Opening " + item.cityName + " maps...");
+            // One-time purchase: this click uses the download slot — disable button immediately
+            if (!item.isSubscription) {
+                item.canDownload = false;
+                purchasesTable.refresh();
+            }
             openMapViewerPopup(item.cityId, item.cityName, token);
         } catch (IOException e) {
             e.printStackTrace();
