@@ -873,30 +873,30 @@ VALUES (6, 44, 1, 'Old Mosque'),
 -- ============================================================
 INSERT INTO users (username, email, password_hash, role, is_active)
 VALUES (
-        'customer',
-        'customer@gcm.com',
+        'customer1',
+        'customer1@gcm.com',
         '1234',
         'CUSTOMER',
         TRUE
     ),
     (
-        'employee',
-        'employee@gcm.com',
+        'employee1',
+        'employee1@gcm.com',
         '1234',
         'CONTENT_EDITOR',
         TRUE
     ),
     (
-        'manager',
-        'manager@gcm.com',
+        'manager1',
+        'manager1@gcm.com',
         '1234',
         'CONTENT_MANAGER',
         TRUE
     );
--- Customer record for 'customer' user (id=1)
+-- Customer record for 'customer1' user (id=1)
 INSERT INTO customers (user_id, payment_token, card_last4)
 VALUES (1, 'tok_visa_mock_123456', '4242');
--- Employee records for employee(id=2) and manager(id=3)
+-- Employee records for employee1(id=2) and manager(id=3)
 INSERT INTO employees (user_id, department)
 VALUES (2, 'Content'),
     (3, 'Management');
@@ -1061,7 +1061,7 @@ VALUES (
 -- DATABASE INFO UPDATE
 -- ============================================================
 -- Added Purchase tables
--- Added 1 purchase and 2 subscriptions for 'customer'
+-- Added 1 purchase and 2 subscriptions for 'customer1'
 -- ============================================================
 -- ============================================================
 -- 18. PRICING_REQUESTS TABLE (Phase 8)
@@ -1087,8 +1087,8 @@ CREATE TABLE IF NOT EXISTS pricing_requests (
 -- Add Company Manager user for testing Phase 8
 INSERT INTO users (username, email, password_hash, role, is_active)
 VALUES (
-        'comanager',
-        'comanager@gcm.com',
+        'comanager1',
+        'comanager1@gcm.com',
         '1234',
         'COMPANY_MANAGER',
         TRUE
@@ -1150,8 +1150,8 @@ CREATE TABLE IF NOT EXISTS faq_entries (
 -- ============================================================
 INSERT INTO users (username, email, password_hash, role, is_active)
 VALUES (
-        'agent',
-        'agent@gcm.com',
+        'agent1',
+        'agent1@gcm.com',
         '1234',
         'SUPPORT_AGENT',
         TRUE
@@ -1161,7 +1161,7 @@ VALUES (
         (
             SELECT id
             FROM users
-            WHERE username = 'agent'
+            WHERE username = 'agent1'
         ),
         'Support'
     );
@@ -1220,7 +1220,7 @@ VALUES (
 -- ============================================================
 -- Phase 9 Support System added
 -- support_tickets, ticket_messages, faq_entries tables created
--- 'agent' user added (SUPPORT_AGENT role)
+-- 'agent1' user added (SUPPORT_AGENT role)
 -- FAQ entries seeded for bot responses
 -- ============================================================
 -- ============================================================
@@ -1233,3 +1233,400 @@ VALUES (
 -- migration_tour_remove_duration: tours use total_distance_meters only (no duration columns)
 -- migration_tour_maps: maps.tour_id FK to tours(id)
 -- ============================================================
+
+-- ============================================================
+-- MISSING MIGRATIONS + TOP-UP DUMMY DATA (idempotent)
+-- Ensures:
+-- 1) daily_stats table exists
+-- 2) 20 cities exist
+-- 3) each city has 5 maps
+-- 4) each map has 10 POIs linked in map_pois
+-- 5) each city has one 10-stop tour (POIs spread across maps)
+-- 6) role users exist: customer/editor/manager/company-manager/agent
+-- ============================================================
+
+-- Missing migration: daily_stats
+CREATE TABLE IF NOT EXISTS daily_stats (
+  stat_date DATE NOT NULL,
+  city_id INT NOT NULL,
+  maps_count INT NOT NULL DEFAULT 0,
+  one_time_purchases INT NOT NULL DEFAULT 0,
+  subscriptions INT NOT NULL DEFAULT 0,
+  renewals INT NOT NULL DEFAULT 0,
+  views INT NOT NULL DEFAULT 0,
+  downloads INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (stat_date, city_id)
+);
+
+DROP PROCEDURE IF EXISTS seed_topup_20_cities_and_roles;
+DELIMITER //
+CREATE PROCEDURE seed_topup_20_cities_and_roles()
+BEGIN
+    DECLARE v_i INT DEFAULT 1;
+    DECLARE v_m INT DEFAULT 1;
+    DECLARE v_p INT DEFAULT 1;
+    DECLARE v_city_id INT;
+    DECLARE v_map_id INT;
+    DECLARE v_tour_id INT;
+    DECLARE v_poi_id INT;
+    DECLARE v_map1_id INT;
+    DECLARE v_stop_order INT;
+    DECLARE v_city_name VARCHAR(100);
+    DECLARE v_city_desc VARCHAR(500);
+    DECLARE v_map_name VARCHAR(220);
+    DECLARE v_tour_name VARCHAR(220);
+    DECLARE v_poi_name VARCHAR(220);
+    DECLARE v_lat DOUBLE;
+    DECLARE v_lon DOUBLE;
+
+    DROP TEMPORARY TABLE IF EXISTS tmp_target_cities;
+    CREATE TEMPORARY TABLE tmp_target_cities (
+        seq INT PRIMARY KEY,
+        city_name VARCHAR(100) COLLATE utf8mb4_unicode_ci NOT NULL,
+        city_desc VARCHAR(500) COLLATE utf8mb4_unicode_ci NOT NULL,
+        city_price DOUBLE NOT NULL
+    );
+
+    INSERT INTO tmp_target_cities (seq, city_name, city_desc, city_price) VALUES
+        (1, 'Haifa', 'Beautiful port city on the Mediterranean coast with the famous Bahai Gardens', 150.00),
+        (2, 'Tel Aviv', 'The vibrant city that never sleeps - beaches, nightlife, and tech hub', 200.00),
+        (3, 'Jerusalem', 'The holy city with rich history and religious significance', 180.00),
+        (4, 'New York', 'The Big Apple - world capital of finance, culture, and diversity', 250.00),
+        (5, 'London', 'Historic capital of England with royal heritage and modern attractions', 220.00),
+        (6, 'Paris', 'The city of lights and love - art, cuisine, and romance', 230.00),
+        (7, 'Tokyo', 'Futuristic metropolis blending ancient traditions with cutting-edge technology', 280.00),
+        (8, 'Sakhnin', 'Historic Arab city in the Galilee known for culture, olive oil, and football', 120.00),
+        (9, 'Berlin', 'Dynamic capital with history, culture, and modern neighborhoods', 210.00),
+        (10, 'Rome', 'Ancient landmarks, art, and vibrant streets', 205.00),
+        (11, 'Barcelona', 'Mediterranean architecture, beaches, and vibrant boulevards', 215.00),
+        (12, 'Amsterdam', 'Canals, museums, and bike-friendly streets', 210.00),
+        (13, 'Prague', 'Historic old town, bridges, and castles', 195.00),
+        (14, 'Vienna', 'Imperial heritage, music, and elegant city center', 205.00),
+        (15, 'Madrid', 'Grand boulevards, plazas, and rich art scene', 200.00),
+        (16, 'Lisbon', 'Hillside views, trams, and Atlantic charm', 190.00),
+        (17, 'Athens', 'Ancient ruins mixed with modern urban life', 185.00),
+        (18, 'Istanbul', 'Crossroads of Europe and Asia with deep history', 225.00),
+        (19, 'Budapest', 'Danube riverfront, baths, and historic districts', 188.00),
+        (20, 'Dublin', 'Historic streets, parks, and lively culture', 192.00);
+
+    -- Rename old *_demo users if they exist and target names are free
+    IF EXISTS (SELECT 1 FROM users WHERE username = 'customer_demo')
+       AND NOT EXISTS (SELECT 1 FROM users WHERE username = 'customer1') THEN
+        UPDATE users
+        SET username = 'customer1', email = 'customer1@gcm.com'
+        WHERE username = 'customer_demo';
+    END IF;
+    IF EXISTS (SELECT 1 FROM users WHERE username = 'editor_demo')
+       AND NOT EXISTS (SELECT 1 FROM users WHERE username = 'employee2') THEN
+        UPDATE users
+        SET username = 'employee2', email = 'employee2@gcm.com'
+        WHERE username = 'editor_demo';
+    END IF;
+    IF EXISTS (SELECT 1 FROM users WHERE username = 'editor1')
+       AND NOT EXISTS (SELECT 1 FROM users WHERE username = 'employee2') THEN
+        UPDATE users
+        SET username = 'employee2', email = 'employee2@gcm.com'
+        WHERE username = 'editor1';
+    END IF;
+    IF EXISTS (SELECT 1 FROM users WHERE username = 'manager_demo')
+       AND NOT EXISTS (SELECT 1 FROM users WHERE username = 'manager1') THEN
+        UPDATE users
+        SET username = 'manager1', email = 'manager1@gcm.com'
+        WHERE username = 'manager_demo';
+    END IF;
+    IF EXISTS (SELECT 1 FROM users WHERE username = 'comanager_demo')
+       AND NOT EXISTS (SELECT 1 FROM users WHERE username = 'comanager1') THEN
+        UPDATE users
+        SET username = 'comanager1', email = 'comanager1@gcm.com'
+        WHERE username = 'comanager_demo';
+    END IF;
+    IF EXISTS (SELECT 1 FROM users WHERE username = 'agent_demo')
+       AND NOT EXISTS (SELECT 1 FROM users WHERE username = 'agent1') THEN
+        UPDATE users
+        SET username = 'agent1', email = 'agent1@gcm.com'
+        WHERE username = 'agent_demo';
+    END IF;
+
+    -- Ensure role users exist (password = 1234 for demo/testing)
+    IF NOT EXISTS (SELECT 1 FROM users WHERE username = 'customer1') THEN
+        INSERT INTO users (username, email, password_hash, role, is_active)
+        VALUES ('customer1', 'customer1@gcm.com', '1234', 'CUSTOMER', TRUE);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM users WHERE username = 'customer2') THEN
+        INSERT INTO users (username, email, password_hash, role, is_active)
+        VALUES ('customer2', 'customer2@gcm.com', '1234', 'CUSTOMER', TRUE);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM users WHERE username = 'customer3') THEN
+        INSERT INTO users (username, email, password_hash, role, is_active)
+        VALUES ('customer3', 'customer3@gcm.com', '1234', 'CUSTOMER', TRUE);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM users WHERE username = 'customer4') THEN
+        INSERT INTO users (username, email, password_hash, role, is_active)
+        VALUES ('customer4', 'customer4@gcm.com', '1234', 'CUSTOMER', TRUE);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM users WHERE username = 'customer5') THEN
+        INSERT INTO users (username, email, password_hash, role, is_active)
+        VALUES ('customer5', 'customer5@gcm.com', '1234', 'CUSTOMER', TRUE);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM customers c
+        JOIN users u ON u.id = c.user_id
+        WHERE u.username = 'customer1'
+    ) THEN
+        INSERT INTO customers (user_id, payment_token, card_last4)
+        VALUES ((SELECT id FROM users WHERE username = 'customer1' LIMIT 1), 'tok_customer1', '1111');
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM customers c JOIN users u ON u.id = c.user_id WHERE u.username = 'customer2'
+    ) THEN
+        INSERT INTO customers (user_id, payment_token, card_last4)
+        VALUES ((SELECT id FROM users WHERE username = 'customer2' LIMIT 1), 'tok_customer2', '2222');
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM customers c JOIN users u ON u.id = c.user_id WHERE u.username = 'customer3'
+    ) THEN
+        INSERT INTO customers (user_id, payment_token, card_last4)
+        VALUES ((SELECT id FROM users WHERE username = 'customer3' LIMIT 1), 'tok_customer3', '3333');
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM customers c JOIN users u ON u.id = c.user_id WHERE u.username = 'customer4'
+    ) THEN
+        INSERT INTO customers (user_id, payment_token, card_last4)
+        VALUES ((SELECT id FROM users WHERE username = 'customer4' LIMIT 1), 'tok_customer4', '4444');
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM customers c JOIN users u ON u.id = c.user_id WHERE u.username = 'customer5'
+    ) THEN
+        INSERT INTO customers (user_id, payment_token, card_last4)
+        VALUES ((SELECT id FROM users WHERE username = 'customer5' LIMIT 1), 'tok_customer5', '5555');
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM users WHERE username = 'employee2') THEN
+        INSERT INTO users (username, email, password_hash, role, is_active)
+        VALUES ('employee2', 'employee2@gcm.com', '1234', 'CONTENT_EDITOR', TRUE);
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM employees e JOIN users u ON u.id = e.user_id WHERE u.username = 'employee2'
+    ) THEN
+        INSERT INTO employees (user_id, department)
+        VALUES ((SELECT id FROM users WHERE username = 'employee2' LIMIT 1), 'Content');
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM users WHERE username = 'manager1') THEN
+        INSERT INTO users (username, email, password_hash, role, is_active)
+        VALUES ('manager1', 'manager1@gcm.com', '1234', 'CONTENT_MANAGER', TRUE);
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM employees e JOIN users u ON u.id = e.user_id WHERE u.username = 'manager1'
+    ) THEN
+        INSERT INTO employees (user_id, department)
+        VALUES ((SELECT id FROM users WHERE username = 'manager1' LIMIT 1), 'Management');
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM users WHERE username = 'comanager1') THEN
+        INSERT INTO users (username, email, password_hash, role, is_active)
+        VALUES ('comanager1', 'comanager1@gcm.com', '1234', 'COMPANY_MANAGER', TRUE);
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM employees e JOIN users u ON u.id = e.user_id WHERE u.username = 'comanager1'
+    ) THEN
+        INSERT INTO employees (user_id, department)
+        VALUES ((SELECT id FROM users WHERE username = 'comanager1' LIMIT 1), 'Executive');
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM users WHERE username = 'agent1') THEN
+        INSERT INTO users (username, email, password_hash, role, is_active)
+        VALUES ('agent1', 'agent1@gcm.com', '1234', 'SUPPORT_AGENT', TRUE);
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM employees e JOIN users u ON u.id = e.user_id WHERE u.username = 'agent1'
+    ) THEN
+        INSERT INTO employees (user_id, department)
+        VALUES ((SELECT id FROM users WHERE username = 'agent1' LIMIT 1), 'Support');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM users WHERE username = 'agent2') THEN
+        INSERT INTO users (username, email, password_hash, role, is_active)
+        VALUES ('agent2', 'agent2@gcm.com', '1234', 'SUPPORT_AGENT', TRUE);
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM employees e JOIN users u ON u.id = e.user_id WHERE u.username = 'agent2'
+    ) THEN
+        INSERT INTO employees (user_id, department)
+        VALUES ((SELECT id FROM users WHERE username = 'agent2' LIMIT 1), 'Support');
+    END IF;
+
+    -- Top-up data for 20 cities
+    WHILE v_i <= 20 DO
+        SELECT city_name, city_desc INTO v_city_name, v_city_desc
+        FROM tmp_target_cities WHERE seq = v_i;
+
+        IF NOT EXISTS (
+            SELECT 1
+            FROM cities
+            WHERE name COLLATE utf8mb4_unicode_ci = v_city_name COLLATE utf8mb4_unicode_ci
+        ) THEN
+            INSERT INTO cities (name, description, price, approved, created_by)
+            SELECT city_name, city_desc, city_price, 1, NULL
+            FROM tmp_target_cities
+            WHERE seq = v_i;
+        END IF;
+
+        SELECT id INTO v_city_id
+        FROM cities
+        WHERE name COLLATE utf8mb4_unicode_ci = v_city_name COLLATE utf8mb4_unicode_ci
+        ORDER BY id
+        LIMIT 1;
+
+        -- Ensure city is approved
+        UPDATE cities SET approved = 1 WHERE id = v_city_id;
+
+        -- Ensure 5 maps per city
+        SET v_m = 1;
+        WHILE v_m <= 5 DO
+            SET v_map_name = CONCAT(v_city_name, ' Map ', v_m);
+            IF NOT EXISTS (
+                SELECT 1
+                FROM maps
+                WHERE city_id = v_city_id
+                  AND name COLLATE utf8mb4_unicode_ci = v_map_name COLLATE utf8mb4_unicode_ci
+            ) THEN
+                INSERT INTO maps (city_id, name, short_description, approved, created_by)
+                VALUES (v_city_id, v_map_name, CONCAT('Auto-generated map ', v_m, ' for ', v_city_name), 1, NULL);
+            END IF;
+
+            SELECT id INTO v_map_id
+            FROM maps
+            WHERE city_id = v_city_id
+              AND name COLLATE utf8mb4_unicode_ci = v_map_name COLLATE utf8mb4_unicode_ci
+            ORDER BY id
+            LIMIT 1;
+
+            -- Ensure 10 POIs per map and link map_pois
+            SET v_p = 1;
+            WHILE v_p <= 10 DO
+                SET v_poi_name = CONCAT(v_city_name, ' M', v_m, ' POI ', v_p);
+                SET v_lat = ROUND(30 + v_i + (v_m * 0.01) + (v_p * 0.0001), 6);
+                SET v_lon = ROUND(34 + v_i + (v_m * 0.01) + (v_p * 0.0001), 6);
+
+                IF NOT EXISTS (
+                    SELECT 1
+                    FROM pois
+                    WHERE city_id = v_city_id
+                      AND name COLLATE utf8mb4_unicode_ci = v_poi_name COLLATE utf8mb4_unicode_ci
+                ) THEN
+                    INSERT INTO pois (
+                        city_id, name, location, latitude, longitude, category, short_explanation, is_accessible
+                    ) VALUES (
+                        v_city_id,
+                        v_poi_name,
+                        CONCAT(v_lat, ',', v_lon),
+                        v_lat,
+                        v_lon,
+                        'Landmark',
+                        CONCAT('Auto-generated POI ', v_p, ' for map ', v_m, ' in ', v_city_name),
+                        TRUE
+                    );
+                END IF;
+
+                SELECT id INTO v_poi_id
+                FROM pois
+                WHERE city_id = v_city_id
+                  AND name COLLATE utf8mb4_unicode_ci = v_poi_name COLLATE utf8mb4_unicode_ci
+                ORDER BY id
+                LIMIT 1;
+
+                IF NOT EXISTS (SELECT 1 FROM map_pois WHERE map_id = v_map_id AND poi_id = v_poi_id) THEN
+                    INSERT INTO map_pois (map_id, poi_id, display_order, approved, linked_by_user_id)
+                    VALUES (v_map_id, v_poi_id, v_p, 1, NULL);
+                END IF;
+
+                SET v_p = v_p + 1;
+            END WHILE;
+
+            SET v_m = v_m + 1;
+        END WHILE;
+
+        -- Ensure one tour per city with 10 stops (10 different POIs across maps in city)
+        SET v_tour_name = CONCAT(v_city_name, ' Grand Tour');
+        IF NOT EXISTS (
+            SELECT 1
+            FROM tours
+            WHERE city_id = v_city_id
+              AND name COLLATE utf8mb4_unicode_ci = v_tour_name COLLATE utf8mb4_unicode_ci
+        ) THEN
+            INSERT INTO tours (city_id, name, general_description, total_distance_meters)
+            VALUES (v_city_id, v_tour_name, CONCAT('Auto-generated 10-stop tour for ', v_city_name), NULL);
+        END IF;
+
+        SELECT id INTO v_tour_id
+        FROM tours
+        WHERE city_id = v_city_id
+          AND name COLLATE utf8mb4_unicode_ci = v_tour_name COLLATE utf8mb4_unicode_ci
+        ORDER BY id
+        LIMIT 1;
+
+        -- Rebuild stops deterministically: POI 1 from maps 1..5, then POI 2 from maps 1..5
+        DELETE FROM tour_stops WHERE tour_id = v_tour_id;
+        SET v_stop_order = 1;
+        SET v_m = 1;
+        WHILE v_m <= 5 DO
+            SET v_poi_name = CONCAT(v_city_name, ' M', v_m, ' POI 1');
+            SELECT id INTO v_poi_id
+            FROM pois
+            WHERE city_id = v_city_id
+              AND name COLLATE utf8mb4_unicode_ci = v_poi_name COLLATE utf8mb4_unicode_ci
+            ORDER BY id
+            LIMIT 1;
+
+            INSERT INTO tour_stops (tour_id, poi_id, stop_order, notes)
+            VALUES (v_tour_id, v_poi_id, v_stop_order, CONCAT('Stop ', v_stop_order, ' - ', v_poi_name));
+            SET v_stop_order = v_stop_order + 1;
+            SET v_m = v_m + 1;
+        END WHILE;
+
+        SET v_m = 1;
+        WHILE v_m <= 5 DO
+            SET v_poi_name = CONCAT(v_city_name, ' M', v_m, ' POI 2');
+            SELECT id INTO v_poi_id
+            FROM pois
+            WHERE city_id = v_city_id
+              AND name COLLATE utf8mb4_unicode_ci = v_poi_name COLLATE utf8mb4_unicode_ci
+            ORDER BY id
+            LIMIT 1;
+
+            INSERT INTO tour_stops (tour_id, poi_id, stop_order, notes)
+            VALUES (v_tour_id, v_poi_id, v_stop_order, CONCAT('Stop ', v_stop_order, ' - ', v_poi_name));
+            SET v_stop_order = v_stop_order + 1;
+            SET v_m = v_m + 1;
+        END WHILE;
+
+        -- Mark first generated map as the dedicated map for this tour
+        SELECT id INTO v_map1_id
+        FROM maps
+        WHERE city_id = v_city_id
+          AND name COLLATE utf8mb4_unicode_ci = CONCAT(v_city_name, ' Map 1') COLLATE utf8mb4_unicode_ci
+        ORDER BY id
+        LIMIT 1;
+        UPDATE maps SET tour_id = v_tour_id WHERE id = v_map1_id;
+
+        SET v_i = v_i + 1;
+    END WHILE;
+
+    DROP TEMPORARY TABLE IF EXISTS tmp_target_cities;
+END //
+DELIMITER ;
+
+CALL seed_topup_20_cities_and_roles();
+DROP PROCEDURE IF EXISTS seed_topup_20_cities_and_roles;
+
+-- ============================================================
+-- Additional SQL from database_update.sql
+-- ============================================================
+CREATE TABLE IF NOT EXISTS subscription_reminders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    subscription_id INT NOT NULL,
+    reminder_type VARCHAR(20) NOT NULL,
+    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_reminder (subscription_id, reminder_type)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
