@@ -565,6 +565,8 @@ public class MapEditHandler {
         System.out.println("MapEditHandler: userId=" + userId + ", isContentManager=" + isContentManager
                 + ", mapId=" + changes.getMapId() + ", cityId=" + changes.getCityId());
 
+        boolean isCityDeletionRequest = changes.getDeletedCityIds() != null && !changes.getDeletedCityIds().isEmpty();
+
         // Route: Save (draft) vs Send/Publish. Save always uses SAVE_MAP_CHANGES (never this handler).
         // Only apply as draft when payload says draft; only publish when manager explicitly chose Publish (draft=false).
         if (asDraftFromPayload) {
@@ -576,13 +578,17 @@ public class MapEditHandler {
         }
         System.out.println("MapEditHandler: branch=CREATE_REQUESTS (editor Send to manager)");
 
-        // Enrich with draft POIs so manager sees drafts the employee saved earlier
-        try (Connection conn = DBConnector.getConnection()) {
-            if (conn != null) {
-                enrichMapChangesWithDraftPoisForCity(conn, changes);
+        // Enrich with draft POIs so manager sees drafts the employee saved earlier.
+        // IMPORTANT: when deleting an entire city, we must not fan-out into POI draft submissions,
+        // otherwise "delete city" becomes N requests (one per map with draft POIs).
+        if (!isCityDeletionRequest) {
+            try (Connection conn = DBConnector.getConnection()) {
+                if (conn != null) {
+                    enrichMapChangesWithDraftPoisForCity(conn, changes);
+                }
+            } catch (SQLException e) {
+                System.out.println("MapEditHandler: Enrich draft POIs failed - " + e.getMessage());
             }
-        } catch (SQLException e) {
-            System.out.println("MapEditHandler: Enrich draft POIs failed - " + e.getMessage());
         }
 
         // Validate then create approval requests
@@ -762,26 +768,28 @@ public class MapEditHandler {
             }
 
             // Extra requests for draft POIs on other maps (split per POI)
-            Integer mainMapId = mapId;
-            if (cityId != null && cityId > 0) {
-                List<MapSummary> cityMaps = MapDAO.getMapsForCity(cityId, userId);
-                for (MapSummary m : cityMaps) {
-                    int mid = m.getId();
-                    if (mainMapId != null && mid == mainMapId) continue;
-                    try {
-                        List<Poi> draftPois = PoiDAO.getDraftPoisForMap(conn, mid);
-                        for (Poi p : draftPois) {
-                            MapChanges extra = new MapChanges();
-                            extra.setMapId(mid);
-                            extra.setCityId(cityId);
-                            extra.setDraft(false);
-                            extra.getAddedPois().add(p);
-                            if (MapEditRequestDAO.createRequest(conn, mid, cityId, userId, extra) > 0) {
-                                createdCount++;
+            if (!isCityDeletionRequest) {
+                Integer mainMapId = mapId;
+                if (cityId != null && cityId > 0) {
+                    List<MapSummary> cityMaps = MapDAO.getMapsForCity(cityId, userId);
+                    for (MapSummary m : cityMaps) {
+                        int mid = m.getId();
+                        if (mainMapId != null && mid == mainMapId) continue;
+                        try {
+                            List<Poi> draftPois = PoiDAO.getDraftPoisForMap(conn, mid);
+                            for (Poi p : draftPois) {
+                                MapChanges extra = new MapChanges();
+                                extra.setMapId(mid);
+                                extra.setCityId(cityId);
+                                extra.setDraft(false);
+                                extra.getAddedPois().add(p);
+                                if (MapEditRequestDAO.createRequest(conn, mid, cityId, userId, extra) > 0) {
+                                    createdCount++;
+                                }
                             }
+                        } catch (SQLException e) {
+                            System.out.println("MapEditHandler: Failed to create request for map " + mid + ": " + e.getMessage());
                         }
-                    } catch (SQLException e) {
-                        System.out.println("MapEditHandler: Failed to create request for map " + mid + ": " + e.getMessage());
                     }
                 }
             }
@@ -796,8 +804,11 @@ public class MapEditHandler {
                     createdCount = 1;
                 }
             }
-            // New city with no map resolved yet (e.g. getMapsForCity returned 0): still create one request so manager can approve
-            if (createdCount == 0 && cityId != null && cityId > 0) {
+            // New city with no map resolved yet (e.g. getMapsForCity returned 0): still create one request so manager can approve.
+            // Do NOT run this for delete-city requests (we must preserve deletedCityIds so approval can delete).
+            if (createdCount == 0
+                    && cityId != null && cityId > 0
+                    && (changes.getDeletedCityIds() == null || changes.getDeletedCityIds().isEmpty())) {
                 MapChanges toCreate = changes;
                 try {
                     // If this city is a draft (new city created by employee), always store as "Add city" so approvals show correctly (not "Delete city")
@@ -824,23 +835,6 @@ public class MapEditHandler {
             if (createdCount == 0 && changes.getDeletedCityIds() != null && !changes.getDeletedCityIds().isEmpty()) {
                 int firstCityId = changes.getDeletedCityIds().get(0);
                 MapChanges toCreate = changes;
-                try {
-                    // If the "deleted" city is actually a draft (new city), treat as "Add city" so it shows correctly in approvals
-                    if (firstCityId > 0 && CityDAO.isCityDraft(conn, firstCityId)) {
-                        String name = CityDAO.getCityName(conn, firstCityId);
-                        if (name != null && !name.trim().isEmpty()) {
-                            toCreate = new MapChanges();
-                            toCreate.setDraft(false);
-                            toCreate.setCreateNewCity(true);
-                            toCreate.setNewCityName(name.trim());
-                            toCreate.setNewCityDescription("");
-                            toCreate.setNewCityPrice(0.0);
-                            toCreate.setCityId(firstCityId);
-                        }
-                    }
-                } catch (SQLException e) {
-                    System.err.println("MapEditHandler: resolve draft city in delete block - " + e.getMessage());
-                }
                 if (MapEditRequestDAO.createRequest(conn, 0, firstCityId, userId, toCreate) > 0) {
                     createdCount = 1;
                 }
@@ -881,6 +875,21 @@ public class MapEditHandler {
         List<MapChanges> result = new ArrayList<>();
         Integer mapId = changes.getMapId();
         Integer cityId = changes.getCityId();
+
+        // If the request is deleting a city, we must not fan-out into other granular requests.
+        // Returning early guarantees "delete city" generates only city-deletion approval rows.
+        if (changes.getDeletedCityIds() != null && !changes.getDeletedCityIds().isEmpty()) {
+            for (Integer cidToDelete : changes.getDeletedCityIds()) {
+                if (cidToDelete == null || cidToDelete <= 0) continue;
+                MapChanges c = new MapChanges();
+                c.setMapId(mapId);      // may be null when deleting city from UI
+                c.setCityId(cidToDelete);
+                c.setDraft(false);
+                c.getDeletedCityIds().add(cidToDelete);
+                result.add(c);
+            }
+            return result;
+        }
 
         java.util.function.Supplier<MapChanges> base = () -> {
             MapChanges c = new MapChanges();
@@ -1059,6 +1068,20 @@ public class MapEditHandler {
                 result.add(c);
             }
         }
+        // City deletions: manager approval must receive deletedCityIds payload.
+        if (changes.getDeletedCityIds() != null) {
+            for (int cidToDelete : changes.getDeletedCityIds()) {
+                if (cidToDelete <= 0) continue;
+                // For city-only delete requests, we want the request row to have the correct city_id
+                // (UI display) while still sending deletedCityIds to applyMapChanges.
+                MapChanges c = new MapChanges();
+                c.setMapId(mapId);
+                c.setCityId(cidToDelete);
+                c.setDraft(false);
+                c.getDeletedCityIds().add(cidToDelete);
+                result.add(c);
+            }
+        }
         return result;
     }
 
@@ -1141,6 +1164,8 @@ public class MapEditHandler {
         MapChanges changes = reqDTO.getChanges();
         if (changes == null)
             return Response.error(request, Response.ERR_INTERNAL, "Invalid request data");
+        System.out.println("MapEditHandler: Approving request " + reqId
+                + " deletedCityIds=" + changes.getDeletedCityIds());
         // Ensure mapId is set so approveAllDraftLinksForMap runs for the correct map (e.g. granular or legacy requests)
         if ((changes.getMapId() == null || changes.getMapId() <= 0) && reqDTO.getMapId() > 0)
             changes.setMapId(reqDTO.getMapId());
@@ -1242,67 +1267,9 @@ public class MapEditHandler {
             MapEditRequestDAO.deleteUserDraft(conn, approverUserId);
         }
 
-        // Employee Save: immediately delete draft city/map/POI (no need to send to manager)
-        if (asDraft) {
-            if (changes.getDeletedCityIds() != null && !changes.getDeletedCityIds().isEmpty()) {
-                List<Integer> toRemove = new ArrayList<>();
-                for (int cityId : changes.getDeletedCityIds()) {
-                    if (cityId <= 0) continue;
-                    try {
-                        if (CityDAO.isCityDraft(conn, cityId)) {
-                            List<Integer> mapIds = MapDAO.getMapIdsByCityId(conn, cityId);
-                            for (int mapId : mapIds) {
-                                MapDAO.deleteMap(conn, mapId); // deletes map's POIs everywhere then the map
-                            }
-                            List<TourDTO> tours = TourDAO.getToursForCity(conn, cityId);
-                            for (TourDTO t : tours) {
-                                TourDAO.deleteTour(conn, t.getId());
-                            }
-                            CityDAO.deleteCity(conn, cityId);
-                            toRemove.add(cityId);
-                        }
-                    } catch (SQLException e) {
-                        System.err.println("MapEditHandler: Immediate delete draft city " + cityId + ": " + e.getMessage());
-                    }
-                }
-                changes.getDeletedCityIds().removeAll(toRemove);
-                if (changes.getDeletedCityIds().isEmpty()) {
-                    MapEditRequestDAO.deleteUserDraft(conn, creatorUserId);
-                }
-            }
-            if (changes.getDeletedMapIds() != null && !changes.getDeletedMapIds().isEmpty()) {
-                List<Integer> toRemove = new ArrayList<>();
-                for (int mapId : changes.getDeletedMapIds()) {
-                    if (mapId <= 0) continue;
-                    try {
-                        if (MapDAO.isMapDraft(conn, mapId)) {
-                            MapDAO.deleteMap(conn, mapId); // deletes map's POIs everywhere then the map
-                            toRemove.add(mapId);
-                        }
-                    } catch (SQLException e) {
-                        System.err.println("MapEditHandler: Immediate delete draft map " + mapId + ": " + e.getMessage());
-                    }
-                }
-                changes.getDeletedMapIds().removeAll(toRemove);
-            }
-            if (changes.getDeletedPoiIds() != null && !changes.getDeletedPoiIds().isEmpty()) {
-                List<Integer> toRemove = new ArrayList<>();
-                for (int poiId : changes.getDeletedPoiIds()) {
-                    if (poiId <= 0) continue;
-                    try {
-                        if (!PoiDAO.hasPoiAnyApprovedLink(conn, poiId)) {
-                            if (!PoiDAO.isPoiUsedInTour(conn, poiId)) {
-                                PoiDAO.deletePoi(conn, poiId);
-                                toRemove.add(poiId);
-                            }
-                        }
-                    } catch (SQLException e) {
-                        System.err.println("MapEditHandler: Immediate delete draft POI " + poiId + ": " + e.getMessage());
-                    }
-                }
-                changes.getDeletedPoiIds().removeAll(toRemove);
-            }
-        }
+        // Employee Save: keep deletions as draft until manager approves/rejects.
+        // Do NOT physically delete cities/maps/POIs here, otherwise they disappear from the editor
+        // before the approval decision is made.
 
         // Create new city if requested (approved = visible to all only when !asDraft)
         if (changes.isCreateNewCity()) {
@@ -1463,8 +1430,9 @@ public class MapEditHandler {
             }
             validation.setCreatedMapId(mapId);
             changes.setMapId(mapId);
-        } else if (hasExistingMap && (changes.getNewMapName() != null || changes.getNewMapDescription() != null)) {
-            // Update existing map name/description (employee changed map info)
+        } else if (!asDraft && hasExistingMap && (changes.getNewMapName() != null || changes.getNewMapDescription() != null)) {
+            // Publish/approval: update existing map name/description.
+            // Draft saves must not mutate customer-visible map data.
             MapDAO.updateMap(conn, changes.getMapId().intValue(),
                     changes.getNewMapName() != null ? changes.getNewMapName() : "",
                     changes.getNewMapDescription() != null ? changes.getNewMapDescription() : "");
@@ -1556,9 +1524,12 @@ public class MapEditHandler {
             }
         }
 
-        // Update POIs
-        for (Poi poi : changes.getUpdatedPois()) {
-            PoiDAO.updatePoi(conn, poi);
+        // Update POIs (publish/approval only).
+        // Draft saves must not mutate customer-visible POI fields.
+        if (!asDraft) {
+            for (Poi poi : changes.getUpdatedPois()) {
+                PoiDAO.updatePoi(conn, poi);
+            }
         }
 
         // Link/unlink POIs (POI can appear in multiple maps of the same city)
@@ -1607,7 +1578,10 @@ public class MapEditHandler {
             }
         }
 
-        // Add/update tours and stops – apply on both Save (draft) and Publish so the same tour row exists; Publish then just "publishes" it (no duplicate).
+        // Tour metadata/route changes should only be applied on Publish/approval.
+        // Draft saves must not mutate customer-visible tour data.
+        if (!asDraft) {
+        // Add/update tours and stops – apply on Publish.
         // Delete tours/stops – only when !asDraft (manager approval).
         java.util.List<Integer> createdTourIds = validation.getCreatedTourIds();
         for (TourDTO tour : changes.getAddedTours()) {
@@ -1723,6 +1697,7 @@ public class MapEditHandler {
                 }
             }
         }
+        }
 
         // Delete POIs – skip when asDraft (employee Save changes); requires manager approval
         if (!asDraft && changes.getDeletedPoiIds() != null) {
@@ -1783,6 +1758,11 @@ public class MapEditHandler {
             String editorName = editor != null ? editor.username : "An employee";
 
             String title = "New Map Edit Request(s)";
+            // Special-case delete-city so managers don't see misleading "map edit" wording.
+            // If the user is deleting a city, it's a "city delete" request regardless of other fields.
+            if (changes != null && changes.getDeletedCityIds() != null && !changes.getDeletedCityIds().isEmpty()) {
+                title = "New City Delete Request(s)";
+            }
 
             StringBuilder body = new StringBuilder();
             body.append(editorName).append(" has submitted ").append(requestCount)
@@ -1821,18 +1801,19 @@ public class MapEditHandler {
      */
     private static void notifyEditorAboutDecision(Connection conn, MapEditRequestDTO reqDTO, boolean approved) {
         try {
+            String statusText = approved ? "published" : "rejected";
             String decision = approved ? "Approved" : "Rejected";
             MapChanges changes = reqDTO.getChanges();
             String mapName = reqDTO.getMapName() != null ? reqDTO.getMapName() : "";
             String cityName = reqDTO.getCityName() != null ? reqDTO.getCityName() : "";
 
-            String title = "Edit Request " + decision;
+            String title = approved ? "Edit Published" : "Edit Rejected";
 
             StringBuilder body = new StringBuilder();
             body.append("Your edit request");
             if (!mapName.isEmpty()) body.append(" for map \"").append(mapName).append("\"");
             if (!cityName.isEmpty()) body.append(" in ").append(cityName);
-            body.append(" has been ").append(decision.toLowerCase()).append(".\n\n");
+            body.append(" has been ").append(statusText).append(".\n\n");
 
             if (changes != null) {
                 body.append("Changes summary:\n");

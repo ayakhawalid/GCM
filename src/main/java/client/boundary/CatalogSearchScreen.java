@@ -409,6 +409,11 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
     private boolean isEligibleForDiscount = false;
     private Label discountMessageLabel;
 
+    private Button activeSubscriptionButton;
+    private int activeSubscriptionMonths;
+    private double activeSubscriptionOriginalPrice;
+    private int activeDisplayedCityId = -1;
+
     private void showCityDetails(CitySearchResult city) {
         if (city == null) {
             detailsCard.setVisible(false);
@@ -429,6 +434,14 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
         cityDescLabel
                 .setText(city.getCityDescription() != null ? city.getCityDescription() : "No description available");
         priceLabel.setText(String.format("$%.2f", city.getCityPrice()));
+        activeDisplayedCityId = city.getCityId();
+
+        // Reset discount state for the newly displayed city.
+        isEligibleForDiscount = false;
+        if (discountMessageLabel != null) {
+            discountMessageLabel.setVisible(false);
+            discountMessageLabel.setManaged(false);
+        }
 
         // Maps
         mapsList.clear();
@@ -488,6 +501,9 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
         subBtn.setPrefHeight(45);
         subBtn.setMaxWidth(Double.MAX_VALUE);
         javafx.scene.layout.HBox.setHgrow(subBtn, javafx.scene.layout.Priority.ALWAYS);
+        activeSubscriptionButton = subBtn;
+        activeSubscriptionMonths = monthsLink.getValue();
+        activeSubscriptionOriginalPrice = price1m;
         subBtn.setOnAction(e -> {
             int m = monthsLink.getValue();
             double p = m == 1 ? price1m : (m == 3 ? price3m : price6m);
@@ -499,6 +515,14 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
         monthsLink.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 double p = newVal == 1 ? price1m : (newVal == 3 ? price3m : price6m);
+                // Reset to non-renew until server confirms eligibility.
+                isEligibleForDiscount = false;
+                if (discountMessageLabel != null) {
+                    discountMessageLabel.setVisible(false);
+                    discountMessageLabel.setManaged(false);
+                }
+                activeSubscriptionMonths = newVal;
+                activeSubscriptionOriginalPrice = p;
                 subBtn.setText(String.format("Subscribe for %d %s ($%.2f)",
                         newVal,
                         newVal == 1 ? "month" : "months",
@@ -811,11 +835,19 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
     }
 
     @Override
-    public void onDiscountEligibility(boolean isEligible) {
+    public void onDiscountEligibility(common.dto.DiscountEligibilityResponse response) {
         Platform.runLater(() -> {
-            this.isEligibleForDiscount = isEligible;
+            if (response == null) return;
+
+            // Ignore eligibility responses that don't match the currently-visible city/month selection.
+            if (response.getCityId() != activeDisplayedCityId || response.getMonths() != activeSubscriptionMonths) {
+                return;
+            }
+
+            this.isEligibleForDiscount = response.isEligible();
+
             if (discountMessageLabel != null) {
-                if (isEligible) {
+                if (isEligibleForDiscount) {
                     discountMessageLabel.setText("You are eligible for a 10% renewal discount on this subscription.");
                     discountMessageLabel.setVisible(true);
                     discountMessageLabel.setManaged(true);
@@ -823,6 +855,18 @@ public class CatalogSearchScreen implements SearchControl.SearchResultCallback {
                     discountMessageLabel.setVisible(false);
                     discountMessageLabel.setManaged(false);
                 }
+            }
+
+            // Toggle the button label: subscribe vs renew for the selected duration.
+            if (activeSubscriptionButton != null) {
+                int m = activeSubscriptionMonths;
+                double original = activeSubscriptionOriginalPrice;
+                activeSubscriptionButton.setText(
+                        isEligibleForDiscount
+                                ? String.format("Renew subscription for %d %s",
+                                        m, m == 1 ? "month" : "months")
+                                : String.format("Subscribe for %d %s ($%.2f)",
+                                        m, m == 1 ? "month" : "months", original));
             }
         });
     }

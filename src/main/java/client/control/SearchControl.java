@@ -28,7 +28,7 @@ public class SearchControl implements GCMClient.MessageHandler {
     public interface SearchResultCallback {
         void onSearchResults(List<CitySearchResult> results);
 
-        void onDiscountEligibility(boolean isEligible);
+        void onDiscountEligibility(common.dto.DiscountEligibilityResponse response);
 
         void onError(String errorCode, String errorMessage);
     }
@@ -94,7 +94,7 @@ public class SearchControl implements GCMClient.MessageHandler {
         String token = LoginController.currentSessionToken;
         if (token == null || token.isEmpty()) {
             if (resultCallback != null)
-                resultCallback.onDiscountEligibility(false);
+                resultCallback.onDiscountEligibility(new common.dto.DiscountEligibilityResponse(false, cityId, months));
             return;
         }
 
@@ -181,10 +181,11 @@ public class SearchControl implements GCMClient.MessageHandler {
             return;
 
         if (requestType == MessageType.CHECK_DISCOUNT_ELIGIBILITY) {
-            if (response.isOk() && response.getPayload() instanceof Boolean) {
-                resultCallback.onDiscountEligibility((Boolean) response.getPayload());
+            if (response.isOk() && response.getPayload() instanceof common.dto.DiscountEligibilityResponse) {
+                resultCallback.onDiscountEligibility((common.dto.DiscountEligibilityResponse) response.getPayload());
             } else {
-                resultCallback.onDiscountEligibility(false); // Default to no discount on error
+                // Default to no discount on error
+                resultCallback.onDiscountEligibility(new common.dto.DiscountEligibilityResponse(false, 0, 0));
             }
             return;
         }

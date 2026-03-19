@@ -119,6 +119,40 @@ public class MapEditRequestDAO {
     }
 
     /**
+     * Get PENDING map edit requests for a specific editor + city scope.
+     * Used by manager approval flow (map_versions) to apply deletions that were
+     * stored as map_edit_requests.
+     *
+     * @param conn open DB connection (transaction-aware)
+     * @param userId editor user id
+     * @param cityId city scope id
+     */
+    public static List<MapEditRequestDTO> getPendingRequestsForUserAndCity(Connection conn, int userId, int cityId)
+            throws SQLException {
+        List<MapEditRequestDTO> requests = new ArrayList<>();
+        if (userId <= 0 || cityId <= 0) return requests;
+
+        String sql = "SELECT r.*, u.username, m.name as map_name, c.name as city_name " +
+                "FROM map_edit_requests r " +
+                "LEFT JOIN users u ON r.user_id = u.id " +
+                "LEFT JOIN maps m ON r.map_id = m.id " +
+                "LEFT JOIN cities c ON r.city_id = c.id " +
+                "WHERE r.status = 'PENDING' AND r.user_id = ? AND r.city_id = ? " +
+                "ORDER BY r.created_at ASC";
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, userId);
+            stmt.setInt(2, cityId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    requests.add(mapResultSetToDTO(rs));
+                }
+            }
+        }
+        return requests;
+    }
+
+    /**
      * Get map IDs that have a PENDING request by this user for this city.
      * Used to show "(waiting for approval)" in the map editor for the employee.
      */
@@ -219,12 +253,16 @@ public class MapEditRequestDAO {
         boolean hasTourAdds = changes.getAddedTours() != null && !changes.getAddedTours().isEmpty();
         boolean hasTourDeletes = changes.getDeletedTourIds() != null && !changes.getDeletedTourIds().isEmpty();
         boolean hasTourUpdates = changes.getUpdatedTours() != null && !changes.getUpdatedTours().isEmpty();
+        boolean hasUpdatedPois = changes.getUpdatedPois() != null && !changes.getUpdatedPois().isEmpty();
+        // Map info edits (name/description) should also be stored in the draft record so the editor keeps the changes after reload.
+        boolean hasMapInfoEdits = (changes.getNewMapName() != null) || (changes.getNewMapDescription() != null);
         boolean hasStopChanges = (changes.getAddedStops() != null && !changes.getAddedStops().isEmpty()) ||
                 (changes.getUpdatedStops() != null && !changes.getUpdatedStops().isEmpty()) ||
                 (changes.getDeletedStopIds() != null && !changes.getDeletedStopIds().isEmpty());
         boolean hasMapDeletes = changes.getDeletedMapIds() != null && !changes.getDeletedMapIds().isEmpty();
         boolean hasCityDeletes = changes.getDeletedCityIds() != null && !changes.getDeletedCityIds().isEmpty();
-        if (hasUnlinks || hasDeletes || hasTourAdds || hasTourDeletes || hasTourUpdates || hasStopChanges || hasMapDeletes || hasCityDeletes) {
+        if (hasUnlinks || hasDeletes || hasTourAdds || hasTourDeletes || hasTourUpdates || hasStopChanges || hasMapDeletes || hasCityDeletes
+                || hasUpdatedPois || hasMapInfoEdits) {
             createRequest(conn, mapId, cityId, userId, changes, "DRAFT");
         }
     }

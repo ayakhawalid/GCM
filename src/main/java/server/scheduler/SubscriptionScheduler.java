@@ -130,6 +130,15 @@ public class SubscriptionScheduler {
                 // Determine reminder type based on days remaining
                 String reminderType = getReminderType(sub.daysUntilExpiry);
 
+                // Requirement: specifically notify 3 days before expiry (not at 2 days).
+                if ("3_DAYS".equals(reminderType) && sub.daysUntilExpiry != 3) {
+                    continue;
+                }
+                // Keep the 1-day reminder behavior as-is, if present.
+                if ("1_DAY".equals(reminderType) && sub.daysUntilExpiry != 1) {
+                    continue;
+                }
+
                 // Check if reminder already sent (dedup)
                 if (PurchaseDAO.hasReminderBeenSent(sub.subscriptionId, reminderType)) {
                     System.out.println("     ⏭ Reminder already sent, skipping...");

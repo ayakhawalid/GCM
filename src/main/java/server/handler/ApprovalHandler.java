@@ -9,7 +9,10 @@ import server.dao.*;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Handler for all version approval operations.
@@ -132,6 +135,11 @@ public class ApprovalHandler {
                     "mapId", String.valueOf(version.getMapId()),
                     "mapName", version.getMapName());
 
+            // 3.5 Apply any pending delete-city edits stored as map_edit_requests.
+            // The edit-approval UI approves map_versions, but actual city deletion lives in
+            // MapEditHandler.applyMapChanges. Since we don't call that path here, we must apply it.
+            applyPendingDeleteCityEditsIfAny(conn, version, approverId);
+
             // 4. Notify customers who purchased the city
             int notificationCount = NotificationDAO.notifyCustomersAboutMapUpdate(
                     conn, version.getCityId(), version.getMapName());
@@ -222,6 +230,10 @@ public class ApprovalHandler {
                     "mapId", String.valueOf(version.getMapId()),
                     "reason", reason);
 
+            // Apply corresponding reject to any pending delete-city edits stored as map_edit_requests.
+            // Without this, the editor might still show the request as pending.
+            rejectPendingDeleteCityEditsIfAny(conn, version, rejectorId);
+
             // 4. Notify the ContentEditor who submitted
             String title = "Map Version Rejected: " + version.getMapName();
             String body = "Your submitted changes for '" + version.getMapName() +
@@ -252,6 +264,80 @@ public class ApprovalHandler {
                 } catch (SQLException e) {
                     /* ignore */ }
             }
+        }
+    }
+
+    /**
+     * When the UI approves a pending map_version, we also need to physically apply
+     * any pending delete-city edits stored as map_edit_requests.
+     *
+     * Without this, approving "delete city" does not actually delete the city/maps.
+     */
+    private static void applyPendingDeleteCityEditsIfAny(Connection conn, MapVersionDTO version, int approverId)
+            throws SQLException {
+        if (version == null || version.getCityId() <= 0 || version.getCreatedBy() <= 0) return;
+
+        // Fetch all pending edits the editor submitted for this city.
+        List<MapEditRequestDTO> pending = MapEditRequestDAO.getPendingRequestsForUserAndCity(
+                conn, version.getCreatedBy(), version.getCityId());
+        if (pending == null || pending.isEmpty()) return;
+
+        Set<Integer> deletedCityIds = new HashSet<>();
+        List<Integer> toApproveRequestIds = new ArrayList<>();
+
+        for (MapEditRequestDTO req : pending) {
+            if (req == null) continue;
+            MapChanges changes = req.getChanges();
+            if (changes == null || changes.getDeletedCityIds() == null || changes.getDeletedCityIds().isEmpty()) continue;
+            deletedCityIds.addAll(changes.getDeletedCityIds());
+            toApproveRequestIds.add(req.getId());
+        }
+
+        if (deletedCityIds.isEmpty()) return;
+
+        // Apply deletions (matches MapEditHandler deletion block semantics).
+        for (int cityId : deletedCityIds) {
+            if (cityId <= 0) continue;
+
+            List<Integer> mapIds = MapDAO.getMapIdsByCityId(conn, cityId);
+            for (int mapId : mapIds) {
+                MapDAO.deleteMap(conn, mapId);
+            }
+
+            List<TourDTO> tours = TourDAO.getToursForCity(conn, cityId);
+            for (TourDTO t : tours) {
+                if (t == null) continue;
+                TourDAO.deleteTour(conn, t.getId());
+            }
+
+            CityDAO.deleteCity(conn, cityId);
+        }
+
+        for (int reqId : toApproveRequestIds) {
+            if (reqId <= 0) continue;
+            MapEditRequestDAO.updateStatus(conn, reqId, "APPROVED");
+        }
+    }
+
+    private static void rejectPendingDeleteCityEditsIfAny(Connection conn, MapVersionDTO version, int rejectorId)
+            throws SQLException {
+        if (version == null || version.getCityId() <= 0 || version.getCreatedBy() <= 0) return;
+
+        List<MapEditRequestDTO> pending = MapEditRequestDAO.getPendingRequestsForUserAndCity(
+                conn, version.getCreatedBy(), version.getCityId());
+        if (pending == null || pending.isEmpty()) return;
+
+        List<Integer> toRejectRequestIds = new ArrayList<>();
+        for (MapEditRequestDTO req : pending) {
+            if (req == null) continue;
+            MapChanges changes = req.getChanges();
+            if (changes == null || changes.getDeletedCityIds() == null || changes.getDeletedCityIds().isEmpty()) continue;
+            toRejectRequestIds.add(req.getId());
+        }
+
+        for (int reqId : toRejectRequestIds) {
+            if (reqId <= 0) continue;
+            MapEditRequestDAO.updateStatus(conn, reqId, "REJECTED");
         }
     }
 

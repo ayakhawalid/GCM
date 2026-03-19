@@ -190,6 +190,8 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
     private List<Poi> lastCityPois = null;
     /** True when user added a map or city removal but has not saved yet; employees must Save before Send. */
     private boolean pendingMapOrCityDeletionUnsaved = false;
+    /** One-time UI override: show publish success text after manager publishes. */
+    private boolean pendingManagerPublishUiSuccess = false;
 
     /**
      * Initialize the controller.
@@ -915,8 +917,8 @@ public class MapEditorScreen implements ContentManagementControl.ContentCallback
                 setStatus("Ready");
             },
             () -> {
-                showError("This location is outside " + selectedCity.getName() + ". Please place the POI inside the city area.");
-                setStatus("Ready");
+                // Match the same error text used for invalid/manual coordinates.
+                showError("Valid coordinates are required (e.g. lat,lng or use the map to place the POI).");
             });
     }
 
@@ -1631,8 +1633,8 @@ dialog.getDialogPane().setContent(content);
                 handleCancelPoiEdit();
             },
             () -> {
-                showError("This location is outside " + selectedCity.getName() + ". Please place the POI inside the city area.");
-                setStatus("Ready");
+                // Match the same error text used for invalid/manual coordinates.
+                showError("Valid coordinates are required (e.g. lat,lng or use the map to place the POI).");
             });
     }
 
@@ -2021,6 +2023,16 @@ dialog.getDialogPane().setContent(content);
         if (selectedCity != null) {
             pendingChanges.setCityId(selectedCity.getId());
         }
+        // When sending a city deletion but the UI cleared the selection, ensure we still send the right cityId.
+        if (!asDraft
+                && pendingChanges.getCityId() == null
+                && pendingChanges.getDeletedCityIds() != null
+                && !pendingChanges.getDeletedCityIds().isEmpty()) {
+            Integer firstDeletedCityId = pendingChanges.getDeletedCityIds().get(0);
+            if (firstDeletedCityId != null && firstDeletedCityId > 0) {
+                pendingChanges.setCityId(firstDeletedCityId);
+            }
+        }
         // When sending for approval with no map: if no city selected, use first draft city so manager can approve the city even before any map exists
         if (!asDraft && pendingChanges.getCityId() == null && currentMapContent == null && cityComboBox != null && cityComboBox.getItems() != null) {
             for (CityDTO c : cityComboBox.getItems()) {
@@ -2080,6 +2092,10 @@ dialog.getDialogPane().setContent(content);
 
     @FXML
     private void handleSendToManager() {
+        // Managers publishing should show a specific status message after the editor reloads.
+        if (LoginController.currentUserRole == LoginController.UserRole.MANAGER) {
+            pendingManagerPublishUiSuccess = true;
+        }
         submitPendingChanges(false);
     }
 
@@ -2119,6 +2135,10 @@ dialog.getDialogPane().setContent(content);
                 setStatus("City \"" + selectedCity.getName() + "\" marked for removal. " + (isManager ? "Press Publish to apply." : "Save changes, then Send to content manager."));
                 cityComboBox.getSelectionModel().clearSelection();
                 selectedCity = null;
+                // Clearing map selection ensures we send a "delete city" request (not a "delete map") for the correct scope.
+                selectedMap = null;
+                pendingChanges.setMapId(null);
+                pendingChanges.setCityId(null);
                 mapsListView.getItems().clear();
                 if (tourMapsListView != null) tourMapsListView.getItems().clear();
                 clearMapContent();
@@ -2214,8 +2234,11 @@ dialog.getDialogPane().setContent(content);
                 dto.setDraft(true);
                 combined.add(dto);
             }
-            // Manager: hide cities marked for deletion until Publish
-            if (pendingChanges.getDeletedCityIds() != null && !pendingChanges.getDeletedCityIds().isEmpty()) {
+            // Manager: hide cities marked for deletion until Publish.
+            // Employees must keep the city visible until the manager approves/rejects.
+            if (LoginController.currentUserRole == LoginController.UserRole.MANAGER
+                    && pendingChanges.getDeletedCityIds() != null
+                    && !pendingChanges.getDeletedCityIds().isEmpty()) {
                 java.util.Set<Integer> toRemove = new java.util.HashSet<>(pendingChanges.getDeletedCityIds());
                 combined.removeIf(c -> c.getId() > 0 && toRemove.contains(c.getId()));
             }
@@ -2371,14 +2394,17 @@ dialog.getDialogPane().setContent(content);
         Platform.runLater(() -> {
             currentMapContent = content;
 
-            // Restore pending approval items from DRAFT (unlinks, deletes, tour changes).
-            // Do NOT repopulate addedPois/updatedPois - those were applied on Save and would cause duplicates.
+            // Restore pending approval items from DRAFT (unlinks, deletes, tour changes, plus draft-only POI/map info).
             common.dto.MapChanges draft = content.getDraftChangesToRestore();
             if (draft != null) {
                 pendingChanges.getPoiMapUnlinks().clear();
                 if (draft.getPoiMapUnlinks() != null) pendingChanges.getPoiMapUnlinks().addAll(draft.getPoiMapUnlinks());
                 pendingChanges.getDeletedPoiIds().clear();
                 if (draft.getDeletedPoiIds() != null) pendingChanges.getDeletedPoiIds().addAll(draft.getDeletedPoiIds());
+                pendingChanges.setNewMapName(draft.getNewMapName());
+                pendingChanges.setNewMapDescription(draft.getNewMapDescription());
+                pendingChanges.getUpdatedPois().clear();
+                if (draft.getUpdatedPois() != null) pendingChanges.getUpdatedPois().addAll(draft.getUpdatedPois());
                 pendingChanges.getAddedTours().clear();
                 if (draft.getAddedTours() != null) {
                     for (common.dto.TourDTO dt : draft.getAddedTours()) {
@@ -2426,11 +2452,32 @@ dialog.getDialogPane().setContent(content);
                 pendingChanges.setNewMapDescription(null);
             }
 
-            // Update POIs tab (null-safe). Trust server's draft flag (from map_pois.approved): once a POI is published it must not show as [Draft].
+            // Update POIs tab (null-safe) and overlay draft-only updated fields from the draft request.
             java.util.List<common.Poi> pois = content.getPois();
             if (pois == null) pois = java.util.Collections.emptyList();
-            poisListView.setItems(FXCollections.observableArrayList(pois));
-            System.out.println("MapEditorScreen.onMapContentReceived: set POIs list, count=" + pois.size());
+            java.util.List<common.Poi> displayPois = new java.util.ArrayList<>(pois);
+            if (draft != null && draft.getUpdatedPois() != null && !draft.getUpdatedPois().isEmpty()) {
+                java.util.Map<Integer, common.Poi> updatedById = new java.util.HashMap<>();
+                for (common.Poi u : draft.getUpdatedPois()) {
+                    if (u != null && u.getId() > 0) updatedById.put(u.getId(), u);
+                }
+                for (common.Poi p : displayPois) {
+                    if (p == null) continue;
+                    common.Poi u = updatedById.get(p.getId());
+                    if (u == null) continue;
+                    // Apply draft edits for the editor without changing customer-visible DB rows.
+                    p.setName(u.getName());
+                    p.setLocation(u.getLocation());
+                    p.setLatitude(u.getLatitude());
+                    p.setLongitude(u.getLongitude());
+                    p.setCategory(u.getCategory());
+                    p.setShortExplanation(u.getShortExplanation());
+                    p.setAccessible(u.isAccessible());
+                    p.setDraft(u.isDraft());
+                }
+            }
+            poisListView.setItems(FXCollections.observableArrayList(displayPois));
+            System.out.println("MapEditorScreen.onMapContentReceived: set POIs list, count=" + displayPois.size());
 
             // Update Tours tab (null-safe)
             java.util.List<common.dto.TourDTO> tours = content.getTours();
@@ -2438,12 +2485,22 @@ dialog.getDialogPane().setContent(content);
             toursListView.setItems(FXCollections.observableArrayList(tours != null ? tours : java.util.Collections.emptyList()));
             System.out.println("MapEditorScreen.onMapContentReceived: set Tours list, count=" + tourCount);
 
-            // Update Map Info tab
-            mapNameField.setText(content.getMapName() != null ? content.getMapName() : "");
-            mapDescArea.setText(content.getShortDescription() != null ? content.getShortDescription() : "");
-            System.out.println("MapEditorScreen.onMapContentReceived: set map info, name=" + content.getMapName());
+            // Update Map Info tab (overlay draft-only name/description if present)
+            String displayMapName = draft != null && draft.getNewMapName() != null ? draft.getNewMapName() :
+                    (content.getMapName() != null ? content.getMapName() : "");
+            String displayMapDesc = draft != null && draft.getNewMapDescription() != null ? draft.getNewMapDescription() :
+                    (content.getShortDescription() != null ? content.getShortDescription() : "");
+            mapNameField.setText(displayMapName);
+            mapDescArea.setText(displayMapDesc);
+            System.out.println("MapEditorScreen.onMapContentReceived: set map info, name=" + displayMapName);
 
-            setStatus("Editing: " + (content.getMapName() != null ? content.getMapName() : "Map"));
+            if (pendingManagerPublishUiSuccess) {
+                // Required exact message after manager publish, regardless of what was published.
+                setStatus("changes applied and released. customers can see the new version.");
+                pendingManagerPublishUiSuccess = false;
+            } else {
+                setStatus("Editing: " + (mapNameField.getText() != null && !mapNameField.getText().isEmpty() ? mapNameField.getText() : "Map"));
+            }
 
             // Update the map view and markers so the map shows the new city/map, not the previous one
             System.out.println("MapEditorScreen.onMapContentReceived: calling refreshMapMarkers");
