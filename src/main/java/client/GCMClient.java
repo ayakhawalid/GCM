@@ -27,6 +27,10 @@ public class GCMClient extends AbstractClient {
 
     public static final String GCMClient = null;
 
+    /** Default server address (overridden by {@link #configureEndpoint} before first {@link #getInstance()}). */
+    private static volatile String configuredHost = "localhost";
+    private static volatile int configuredPort = 5555;
+
     private static GCMClient instance;
     private MessageHandler messageHandler;
 
@@ -48,18 +52,40 @@ public class GCMClient extends AbstractClient {
     private GCMClient(String host, int port) throws IOException {
         super(host, port);
         openConnection();
-        System.out.println("GCMClient: Connected to server");
+        System.out.println("GCMClient: Connected to " + host + ":" + port);
+    }
+
+    /**
+     * Set the server host and port before the first {@link #getInstance()} call (e.g. from {@code LoginApp}
+     * using command-line args or system properties). Ignored once a connection has been created.
+     */
+    public static void configureEndpoint(String host, int port) {
+        if (instance != null) {
+            System.err.println("GCMClient: configureEndpoint ignored — client already created.");
+            return;
+        }
+        if (host != null && !host.isBlank()) {
+            configuredHost = host.trim();
+        }
+        if (port > 0 && port <= 65535) {
+            configuredPort = port;
+        }
+    }
+
+    public static String getConfiguredHost() {
+        return configuredHost;
+    }
+
+    public static int getConfiguredPort() {
+        return configuredPort;
     }
 
     /**
      * Get the singleton instance. Establishes connection if needed.
      */
-    /**
-     * Get the singleton instance. Establishes connection if needed.
-     */
     public static GCMClient getInstance() throws IOException {
         if (instance == null) {
-            instance = new GCMClient("localhost", 5555);
+            instance = new GCMClient(configuredHost, configuredPort);
         } else if (!instance.isConnected()) {
             instance.openConnection();
         }

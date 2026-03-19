@@ -347,6 +347,16 @@ public class GCMServer extends AbstractServer {
     // MAIN METHOD TO START THE SERVER
     public static void main(String[] args) {
         int port = 5555;
+        if (args.length > 0) {
+            try {
+                port = Integer.parseInt(args[0].trim());
+            } catch (NumberFormatException e) {
+                System.err.println("Usage: java -jar GCM-Server.jar [port]");
+                System.err.println("Invalid port, using default 5555");
+                port = 5555;
+            }
+        }
+        System.out.println("GCM server listening on 0.0.0.0:" + port + " (all network interfaces)");
         GCMServer server = new GCMServer(port);
 
         // Add shutdown hook for graceful shutdown

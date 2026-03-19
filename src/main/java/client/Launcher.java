@@ -14,7 +14,8 @@ public class Launcher {
     /**
      * Main method - Entry point for the JAR file.
      * 
-     * @param args Command line arguments (optional: server IP address)
+     * @param args optional: {@code [serverHost] [port]} — e.g. {@code 192.168.1.50 5555};
+     *            or use {@code -Dgcm.server.host=} / {@code -Dgcm.server.port=}
      */
     public static void main(String[] args) {
         // Launch the JavaFX application

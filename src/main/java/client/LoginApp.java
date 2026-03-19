@@ -9,6 +9,7 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Main application class to launch the Login page.
@@ -19,6 +20,9 @@ public class LoginApp extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
+        // Must run before login FXML loads — LoginController calls GCMClient.getInstance() in initialize().
+        applyServerEndpointFromArgsAndSystemProperties();
+
         // Load the login FXML file from resources/client/
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/client/login.fxml"));
         Parent root = loader.load();
@@ -52,6 +56,47 @@ public class LoginApp extends Application {
 
         // Show the window
         primaryStage.show();
+    }
+
+    /**
+     * Remote client: pass server machine IP/hostname as the first program argument, optional port as second.
+     * Example: {@code java -jar GCM-Client.jar 192.168.1.50 5555}
+     * <p>
+     * Or set system properties: {@code -Dgcm.server.host=192.168.1.50 -Dgcm.server.port=5555}
+     * <p>
+     * Command-line args override system properties when both are present.
+     */
+    private void applyServerEndpointFromArgsAndSystemProperties() {
+        String host = "localhost";
+        int port = 5555;
+
+        String propHost = System.getProperty("gcm.server.host");
+        if (propHost != null && !propHost.isBlank()) {
+            host = propHost.trim();
+        }
+        String propPort = System.getProperty("gcm.server.port");
+        if (propPort != null && !propPort.isBlank()) {
+            try {
+                port = Integer.parseInt(propPort.trim());
+            } catch (NumberFormatException ignored) {
+                /* keep default */
+            }
+        }
+
+        List<String> raw = getParameters().getRaw();
+        if (!raw.isEmpty()) {
+            host = raw.get(0).trim();
+        }
+        if (raw.size() > 1) {
+            try {
+                port = Integer.parseInt(raw.get(1).trim());
+            } catch (NumberFormatException ignored) {
+                /* keep previous port */
+            }
+        }
+
+        GCMClient.configureEndpoint(host, port);
+        System.out.println("GCM client will use server " + host + ":" + port);
     }
 
     public static void main(String[] args) {
