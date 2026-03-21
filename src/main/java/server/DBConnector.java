@@ -21,9 +21,10 @@ public class DBConnector {
     private static final String USER = "root";
     private static final String PASS = "momo8523";
 
-    // Pool configuration
-    private static final int MAX_POOL_SIZE = 10;
-    private static final int MIN_IDLE = 2;
+    // Pool configuration (10 request worker threads + scheduler + overlapping clients can exhaust a tiny pool)
+    // Stay below MySQL max_connections (often 151 by default on local installs).
+    private static final int MAX_POOL_SIZE = 25;
+    private static final int MIN_IDLE = 5;
     private static final long CONNECTION_TIMEOUT_MS = 30000;
     private static final long IDLE_TIMEOUT_MS = 600000;
     private static final long MAX_LIFETIME_MS = 1800000;

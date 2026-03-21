@@ -81,6 +81,23 @@ public class PurchaseDAO {
     }
 
     /**
+     * True if the user has any active (not expired) subscription row for this city.
+     * Used for analytics: a follow-up subscription purchase while still subscribed counts as a renewal.
+     */
+    public static boolean hasActiveSubscriptionForCity(int userId, int cityId) {
+        String sql = "SELECT 1 FROM subscriptions WHERE user_id = ? AND city_id = ? AND end_date > CURDATE() LIMIT 1";
+        try (Connection conn = DBConnector.getConnection();
+                PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, userId);
+            stmt.setInt(2, cityId);
+            return stmt.executeQuery().next();
+        } catch (SQLException e) {
+            System.err.println("Error checking active subscription for city: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
      * Check if user has an active subscription for this city and duration that
      * expires within 3 days.
      */

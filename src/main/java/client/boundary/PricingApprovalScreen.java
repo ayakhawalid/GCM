@@ -104,9 +104,9 @@ public class PricingApprovalScreen implements GCMClient.MessageHandler {
         // Setup table columns
         cityCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getCityName()));
         currentCol.setCellValueFactory(
-                data -> new SimpleStringProperty(String.format("₪%.2f", data.getValue().getCurrentPrice())));
+                data -> new SimpleStringProperty(String.format("$%.2f", data.getValue().getCurrentPrice())));
         proposedCol.setCellValueFactory(
-                data -> new SimpleStringProperty(String.format("₪%.2f", data.getValue().getProposedPrice())));
+                data -> new SimpleStringProperty(String.format("$%.2f", data.getValue().getProposedPrice())));
         changeCol.setCellValueFactory(data -> {
             double change = data.getValue().getPriceChangePercent();
             String sign = change >= 0 ? "+" : "";
@@ -164,8 +164,8 @@ public class PricingApprovalScreen implements GCMClient.MessageHandler {
         selectedRequest = request;
         if (request != null) {
             detailCityLabel.setText(request.getCityName());
-            detailCurrentLabel.setText(String.format("₪%.2f", request.getCurrentPrice()));
-            detailProposedLabel.setText(String.format("₪%.2f", request.getProposedPrice()));
+            detailCurrentLabel.setText(String.format("$%.2f", request.getCurrentPrice()));
+            detailProposedLabel.setText(String.format("$%.2f", request.getProposedPrice()));
 
             double change = request.getPriceChangePercent();
             String sign = change >= 0 ? "+" : "";
@@ -191,8 +191,8 @@ public class PricingApprovalScreen implements GCMClient.MessageHandler {
 
     private void clearDetails() {
         detailCityLabel.setText("(Select a request)");
-        detailCurrentLabel.setText("₪0.00");
-        detailProposedLabel.setText("₪0.00");
+        detailCurrentLabel.setText("$0.00");
+        detailProposedLabel.setText("$0.00");
         detailChangeLabel.setText("");
         detailChangeLabel.setStyle("");
         detailSubmitterLabel.setText("-");
@@ -225,7 +225,7 @@ public class PricingApprovalScreen implements GCMClient.MessageHandler {
         confirm.setTitle("Confirm Approval");
         confirm.setHeaderText("Approve Price Change?");
         confirm.setContentText(String.format(
-                "City: %s\nPrice: ₪%.2f → ₪%.2f\n\nThis action will immediately update the city price.",
+                "City: %s\nPrice: $%.2f → $%.2f\n\nThis action will immediately update the city price.",
                 selectedRequest.getCityName(),
                 selectedRequest.getCurrentPrice(),
                 selectedRequest.getProposedPrice()));
@@ -333,14 +333,14 @@ public class PricingApprovalScreen implements GCMClient.MessageHandler {
     }
 
     private void showError(String message) {
-        errorLabel.setText("❌ " + message);
+        errorLabel.setText(message);
         errorLabel.setStyle("-fx-text-fill: #e74c3c;");
     }
 
     private void showSuccess(String message) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Success");
-        alert.setHeaderText("✅ Action Completed");
+        alert.setHeaderText("Action Completed");
         alert.setContentText(message);
         alert.showAndWait();
     }

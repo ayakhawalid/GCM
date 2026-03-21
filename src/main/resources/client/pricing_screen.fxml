@@ -50,7 +50,7 @@
             <!-- Left: City Prices Table -->
             <VBox spacing="15" style="-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 20; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);" HBox.hgrow="ALWAYS">
                 <HBox alignment="CENTER_LEFT" spacing="10">
-                    <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2d3436;" text="📋 Current City Prices" />
+                    <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2d3436;" text="Current City Prices" />
                     <Region HBox.hgrow="ALWAYS" />
                     <Label fx:id="statusLabel" style="-fx-text-fill: #7f8c8d; -fx-font-size: 11px;" text="Ready" />
                 </HBox>
@@ -66,12 +66,12 @@
                     </placeholder>
                 </TableView>
                 
-                <Button onAction="#refreshPrices" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 10 20; -fx-background-radius: 8; -fx-cursor: hand;" text="🔄 Refresh Prices" />
+                <Button onAction="#refreshPrices" style="-fx-background-color: #3498db; -fx-text-fill: white; -fx-padding: 10 20; -fx-background-radius: 8; -fx-cursor: hand;" text="Refresh Prices" />
             </VBox>
 
             <!-- Right: Propose New Price Form -->
             <VBox prefWidth="400" spacing="20" style="-fx-background-color: white; -fx-background-radius: 12; -fx-padding: 20; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.1), 10, 0, 0, 2);">
-                <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2d3436;" text="📝 Propose Price Change" />
+                <Label style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #2d3436;" text="Propose Price Change" />
                 
                 <!-- Selected City Info -->
                 <VBox spacing="8" style="-fx-background-color: #f8f9fa; -fx-background-radius: 8; -fx-padding: 15;">
@@ -79,13 +79,13 @@
                     <Label fx:id="selectedCityLabel" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #2d3436;" text="(Select a city from the table)" />
                     <HBox alignment="CENTER_LEFT" spacing="10">
                         <Label style="-fx-text-fill: #7f8c8d;" text="Current Price:" />
-                        <Label fx:id="currentPriceLabel" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #27ae60;" text="₪0.00" />
+                        <Label fx:id="currentPriceLabel" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #27ae60;" text="$0.00" />
                     </HBox>
                 </VBox>
 
                 <!-- New Price Input -->
                 <VBox spacing="8">
-                    <Label style="-fx-text-fill: #2d3436; -fx-font-weight: bold;" text="Proposed New Price (₪):" />
+                    <Label style="-fx-text-fill: #2d3436; -fx-font-weight: bold;" text="Proposed New Price ($):" />
                     <TextField fx:id="newPriceField" promptText="Enter new price (e.g., 199.99)" style="-fx-padding: 12; -fx-background-radius: 8; -fx-font-size: 16px;" />
                     <Label fx:id="priceChangeLabel" style="-fx-font-size: 12px;" text="" />
                 </VBox>
@@ -97,7 +97,7 @@
                 </VBox>
 
                 <!-- Submit Button -->
-                <Button fx:id="submitBtn" onAction="#handleSubmit" prefWidth="Infinity" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 15; -fx-background-radius: 8; -fx-cursor: hand;" text="📤 Submit Pricing Request" />
+                <Button fx:id="submitBtn" onAction="#handleSubmit" prefWidth="Infinity" style="-fx-background-color: #e74c3c; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 15; -fx-background-radius: 8; -fx-cursor: hand;" text="Submit Pricing Request" />
                 
                 <Label fx:id="errorLabel" style="-fx-text-fill: #e74c3c; -fx-font-size: 12px;" text="" wrapText="true" />
             </VBox>
@@ -108,7 +108,7 @@
     <!-- Footer: Pending Requests -->
     <bottom>
         <VBox spacing="10" style="-fx-background-color: white; -fx-padding: 15; -fx-border-color: #ecf0f1; -fx-border-width: 1 0 0 0;">
-            <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #2d3436;" text="📊 My Pending Requests" />
+            <Label style="-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #2d3436;" text="My Pending Requests" />
             <HBox fx:id="pendingRequestsBox" spacing="10">
                 <Label style="-fx-text-fill: #95a5a6; -fx-font-style: italic;" text="No pending requests" />
             </HBox>

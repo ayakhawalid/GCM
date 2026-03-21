@@ -27,6 +27,7 @@ public class PurchaseHandler {
             case CAN_DOWNLOAD:
             case DOWNLOAD_MAP_VERSION:
             case RECORD_VIEW_EVENT:
+            case RECORD_DUMMY_MAP_DOWNLOAD:
             case GET_MY_PURCHASES:
                 return true;
             default:
@@ -52,6 +53,8 @@ public class PurchaseHandler {
                 return handleDownloadMapVersion(request);
             case RECORD_VIEW_EVENT:
                 return handleRecordViewEvent(request);
+            case RECORD_DUMMY_MAP_DOWNLOAD:
+                return handleRecordDummyMapDownload(request);
             case GET_MY_PURCHASES:
                 return handleGetMyPurchases(request);
             default:
@@ -139,8 +142,8 @@ public class PurchaseHandler {
             return Response.error(request, Response.ERR_VALIDATION, "Invalid purchase type");
         }
 
-        boolean isRenewal = PurchaseDAO.hasActiveExpiringSubscription(userId, purchase.getCityId(),
-                purchase.getMonths());
+        // Renew button / extending an active city subscription → renewals metric; first-time sub for this city → subscriptions
+        boolean hadActiveSubscriptionForCity = PurchaseDAO.hasActiveSubscriptionForCity(userId, purchase.getCityId());
         boolean success = PurchaseDAO.purchaseSubscription(userId, purchase.getCityId(), purchase.getMonths());
 
         if (success) {
@@ -149,8 +152,8 @@ public class PurchaseHandler {
                 server.dao.UserDAO.updateProfile(userId, null, null, purchase.getCardLast4(), purchase.getCardExpiry());
             }
 
-            // Log as RENEWAL if user had previous subscription, otherwise SUBSCRIPTION
-            server.dao.DailyStatsDAO.Metric metric = isRenewal ? server.dao.DailyStatsDAO.Metric.RENEWAL
+            server.dao.DailyStatsDAO.Metric metric = hadActiveSubscriptionForCity
+                    ? server.dao.DailyStatsDAO.Metric.RENEWAL
                     : server.dao.DailyStatsDAO.Metric.PURCHASE_SUBSCRIPTION;
 
             server.dao.DailyStatsDAO.increment(purchase.getCityId(), metric);
@@ -258,10 +261,7 @@ public class PurchaseHandler {
             if (entitlement.getType() == EntitlementInfo.EntitlementType.ONE_TIME) {
                 PurchaseDAO.recordDownload(userId, cityId);
             }
-            // Report metric: count only downloads by subscribers (spec: "Number of map downloads - ONLY downloads performed by subscribers")
-            if (entitlement.getType() == EntitlementInfo.EntitlementType.SUBSCRIPTION) {
-                server.dao.DailyStatsDAO.increment(cityId, server.dao.DailyStatsDAO.Metric.DOWNLOAD);
-            }
+            // City report "Downloads" metric: demo download button in map viewer (RECORD_DUMMY_MAP_DOWNLOAD), not this call.
             return Response.success(request, "Download authorized and recorded");
         }
         if (entitlement.getType() == EntitlementInfo.EntitlementType.ONE_TIME) {
@@ -271,34 +271,62 @@ public class PurchaseHandler {
         return Response.error(request, Response.ERR_UNAUTHORIZED, "Purchase required to download");
     }
 
+    /**
+     * City report "views": user opened the purchased city's map viewer (My Purchases / post-purchase flow).
+     * Payload: city id only (string or integer). One increment per open, not per map selection.
+     */
     private static Response handleRecordViewEvent(Request request) {
-        // Needs authentication
         Integer userId = getAuthenticatedUserId(request);
         if (userId == null) {
-            // Views might be allowed for guests? Requirements say "Subscription: unlimited
-            // view".
-            // Guest view sounds restricted. But if guest CAN view (e.g. preview), we might
-            // not record it or user 0.
-            // Implication is views are for subscribers.
             return Response.error(request, Response.ERR_UNAUTHORIZED, "Login required");
         }
 
-        // Payload expected: "cityId,mapId"
-        String payload = (String) request.getPayload();
-        String[] parts = payload.split(",");
-        if (parts.length != 2) {
-            return Response.error(request, Response.ERR_VALIDATION, "Invalid format");
+        Object raw = request.getPayload();
+        if (raw == null) {
+            return Response.error(request, Response.ERR_VALIDATION, "City id required");
+        }
+        String payloadStr = raw.toString().trim();
+        if (payloadStr.contains(",")) {
+            return Response.error(request, Response.ERR_VALIDATION, "Send city id only");
         }
 
+        int cityId;
         try {
-            int cityId = Integer.parseInt(parts[0]);
-            int mapId = Integer.parseInt(parts[1]);
-            PurchaseDAO.recordView(userId, cityId, mapId);
-            server.dao.DailyStatsDAO.increment(cityId, server.dao.DailyStatsDAO.Metric.VIEW);
-            return Response.success(request, "View recorded");
+            cityId = Integer.parseInt(payloadStr);
         } catch (NumberFormatException e) {
-            return Response.error(request, Response.ERR_VALIDATION, "Invalid IDs");
+            return Response.error(request, Response.ERR_VALIDATION, "Invalid city ID");
         }
+
+        EntitlementInfo entitlement = PurchaseDAO.getEntitlement(userId, cityId);
+        if (entitlement.getType() == EntitlementInfo.EntitlementType.NONE) {
+            return Response.error(request, Response.ERR_FORBIDDEN, "No purchase for this city");
+        }
+
+        server.dao.DailyStatsDAO.increment(cityId, server.dao.DailyStatsDAO.Metric.VIEW);
+        return Response.success(request, "View recorded");
+    }
+
+    /** Demo download control in map viewer: counts toward city report Downloads (one-time and subscription). */
+    private static Response handleRecordDummyMapDownload(Request request) {
+        Integer userId = getAuthenticatedUserId(request);
+        if (userId == null) {
+            return Response.error(request, Response.ERR_UNAUTHORIZED, "Login required");
+        }
+
+        int cityId;
+        try {
+            cityId = Integer.parseInt(request.getPayload().toString());
+        } catch (Exception e) {
+            return Response.error(request, Response.ERR_VALIDATION, "Invalid city ID");
+        }
+
+        EntitlementInfo entitlement = PurchaseDAO.getEntitlement(userId, cityId);
+        if (entitlement.getType() == EntitlementInfo.EntitlementType.NONE) {
+            return Response.error(request, Response.ERR_FORBIDDEN, "No purchase for this city");
+        }
+
+        server.dao.DailyStatsDAO.increment(cityId, server.dao.DailyStatsDAO.Metric.DOWNLOAD);
+        return Response.success(request, "Demo download recorded");
     }
 
     private static Integer getAuthenticatedUserId(Request request) {

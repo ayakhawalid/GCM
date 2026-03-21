@@ -96,7 +96,7 @@ public class PricingScreen implements GCMClient.MessageHandler {
         cityIdCol.setCellValueFactory(data -> new SimpleIntegerProperty(data.getValue().getCityId()).asObject());
         cityNameCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getCityName()));
         currentPriceCol.setCellValueFactory(
-                data -> new SimpleStringProperty(String.format("₪%.2f", data.getValue().getOneTimePrice())));
+                data -> new SimpleStringProperty(String.format("$%.2f", data.getValue().getOneTimePrice())));
 
         pricesTable.setItems(pricesList);
 
@@ -122,11 +122,11 @@ public class PricingScreen implements GCMClient.MessageHandler {
         selectedCity = city;
         if (city != null) {
             selectedCityLabel.setText(city.getCityName());
-            currentPriceLabel.setText(String.format("₪%.2f", city.getOneTimePrice()));
+            currentPriceLabel.setText(String.format("$%.2f", city.getOneTimePrice()));
             submitBtn.setDisable(false);
         } else {
             selectedCityLabel.setText("(Select a city from the table)");
-            currentPriceLabel.setText("₪0.00");
+            currentPriceLabel.setText("$0.00");
             submitBtn.setDisable(true);
         }
         updatePriceChangePreview();
@@ -190,7 +190,7 @@ public class PricingScreen implements GCMClient.MessageHandler {
         }
 
         if (newPrice > 10000) {
-            showError("Price cannot exceed ₪10,000");
+            showError("Price cannot exceed $10,000");
             return;
         }
 
@@ -274,14 +274,14 @@ public class PricingScreen implements GCMClient.MessageHandler {
     }
 
     private void showError(String message) {
-        errorLabel.setText("❌ " + message);
+        errorLabel.setText(message);
         errorLabel.setStyle("-fx-text-fill: #e74c3c;");
     }
 
     private void showSuccess(String message) {
         Alert alert = new Alert(Alert.AlertType.INFORMATION);
         alert.setTitle("Success");
-        alert.setHeaderText("✅ Request Submitted");
+        alert.setHeaderText("Request Submitted");
         alert.setContentText(message);
         alert.showAndWait();
     }

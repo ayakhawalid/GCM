@@ -104,7 +104,7 @@ public class ReportsController implements GCMClient.MessageHandler {
     private static final double MAX_SCALE = 4.0;
     /** Slightly zoomed out so x-axis category names (Maps, Subscriptions, etc.) are visible. */
     private static final double DEFAULT_SCALE = 0.88;
-    private static final String[] METRIC_NAMES = {"Maps", "One-time purchases", "Subscriptions", "Renewals", "Views", "Downloads"};
+    private static final String[] METRIC_NAMES = {"Maps", "One-time purchases", "Subscriptions", "Renewals", "Map views", "Demo downloads"};
     /** Left margin reserved for Y-axis label "Count" and tick numbers so they never overlap the graph. */
     private static final double AXIS_LEFT = 44;
 
@@ -350,7 +350,7 @@ public class ReportsController implements GCMClient.MessageHandler {
                                     a += s.getMapsCount(); b += s.getOneTimePurchases(); c += s.getSubscriptions();
                                     d += s.getRenewals(); e += s.getViews(); f += s.getDownloads();
                                 }
-                                valuesLabel.setText("Maps=" + a + ", One-time=" + b + ", Subscriptions=" + c + ", Renewals=" + d + ", Views=" + e + ", Downloads=" + f);
+                                valuesLabel.setText("Maps=" + a + ", One-time=" + b + ", Subscriptions=" + c + ", Renewals=" + d + ", Map views=" + e + ", Demo downloads=" + f);
                             }
                             if (statusLabel != null) statusLabel.setText("Report generated.");
                         }
@@ -388,7 +388,7 @@ public class ReportsController implements GCMClient.MessageHandler {
                 updateChart(stats);
                 if (stats == null || stats.isEmpty()) {
                     if (statusLabel != null) statusLabel.setText("No activity data for this period.");
-                    if (valuesLabel != null) valuesLabel.setText("Maps=0, One-time=0, Subscriptions=0, Renewals=0, Views=0, Downloads=0");
+                    if (valuesLabel != null) valuesLabel.setText("Maps=0, One-time=0, Subscriptions=0, Renewals=0, Map views=0, Demo downloads=0");
                 }
             } else {
                 if (statusLabel != null) statusLabel.setText("Error: " + response.getErrorMessage());
@@ -515,7 +515,7 @@ public class ReportsController implements GCMClient.MessageHandler {
 
     private void updateChart(List<DailyStat> stats) {
         if (stats == null || stats.isEmpty()) {
-            if (valuesLabel != null) valuesLabel.setText("Maps=0, One-time=0, Subscriptions=0, Renewals=0, Views=0, Downloads=0");
+            if (valuesLabel != null) valuesLabel.setText("Maps=0, One-time=0, Subscriptions=0, Renewals=0, Map views=0, Demo downloads=0");
             if (statusLabel != null) statusLabel.setText("No activity data for this period.");
             redrawLineChart(0, 0, 0, 0, 0, 0);
             resetZoom();
@@ -613,7 +613,7 @@ public class ReportsController implements GCMClient.MessageHandler {
     }
 
     private void setStatusWithNumbers(int maps, int oneTime, int subs, int renewals, int views, int downloads) {
-        String text = "Maps=" + maps + ", One-time=" + oneTime + ", Subscriptions=" + subs + ", Renewals=" + renewals + ", Views=" + views + ", Downloads=" + downloads;
+        String text = "Maps=" + maps + ", One-time=" + oneTime + ", Subscriptions=" + subs + ", Renewals=" + renewals + ", Map views=" + views + ", Demo downloads=" + downloads;
         if (valuesLabel != null) valuesLabel.setText(text);
         if (statusLabel != null) statusLabel.setText("Report generated.");
     }

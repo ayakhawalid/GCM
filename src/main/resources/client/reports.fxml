@@ -78,7 +78,7 @@
 
             <VBox spacing="8.0">
                <Label text="Report values (numbers for this period):" style="-fx-font-weight: bold; -fx-font-size: 14px;"/>
-               <Label fx:id="valuesLabel" text="Maps: —  One-time: —  Subscriptions: —  Renewals: —  Views: —  Downloads: —" wrapText="true" style="-fx-font-size: 13px; -fx-padding: 4 0 0 0;"/>
+               <Label fx:id="valuesLabel" text="Maps: —  One-time: —  Subscriptions: —  Renewals: —  Map views: —  Demo downloads: —" wrapText="true" style="-fx-font-size: 13px; -fx-padding: 4 0 0 0;"/>
                <Label fx:id="statusLabel" text="Select dates and click Generate Report." textFill="#666666" style="-fx-font-size: 11px;"/>
             </VBox>
 

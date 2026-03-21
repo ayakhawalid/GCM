@@ -136,6 +136,9 @@ public enum MessageType {
     /** Record map view event */
     RECORD_VIEW_EVENT,
 
+    /** Record demo map download button press (map viewer) */
+    RECORD_DUMMY_MAP_DOWNLOAD,
+
     /** Get user's purchase history */
     GET_MY_PURCHASES,
 

@@ -234,7 +234,7 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
         if (token == null || token.isEmpty())
             return;
         try {
-            // Record download/view event
+            // One-time: consume download slot; subscription: authorize (no report stats here)
             gcmClient.sendToServer(new Request(MessageType.DOWNLOAD_MAP_VERSION, item.cityId, token));
             statusLabel.setText(item.isSubscription ? "Opening " + item.cityName + " maps..."
                     : "Opening " + item.cityName + " maps...");
@@ -332,7 +332,15 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
         Tooltip dlTip = new Tooltip("Download (demo only)");
         dlTip.setStyle("-fx-text-fill: black; -fx-font-size: 12px; -fx-background-color: transparent; -fx-background-insets: 0; -fx-padding: 0;");
         dummyDownloadBtn.setTooltip(dlTip);
-        dummyDownloadBtn.setOnAction(e -> popupStatusLabel.setText("Downloaded (demo)."));
+        final int reportCityId = cityId;
+        dummyDownloadBtn.setOnAction(e -> {
+            popupStatusLabel.setText("Downloaded (demo).");
+            try {
+                gcmClient.sendToServer(new Request(MessageType.RECORD_DUMMY_MAP_DOWNLOAD,
+                        String.valueOf(reportCityId), token));
+            } catch (IOException ignored) {
+            }
+        });
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -370,6 +378,10 @@ public class MyPurchasesScreen implements GCMClient.MessageHandler {
             viewerPopup.setError("Failed to request maps");
         }
         popupStage.show();
+        try {
+            gcmClient.sendToServer(new Request(MessageType.RECORD_VIEW_EVENT, String.valueOf(cityId), token));
+        } catch (IOException ignored) {
+        }
     }
 
     @FXML

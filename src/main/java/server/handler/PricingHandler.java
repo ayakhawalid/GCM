@@ -206,7 +206,7 @@ public class PricingHandler {
             String title = "Pricing Request Approved";
             String body = String.format(
                     "Your pricing request for %s has been approved!\n\n" +
-                            "Price changed from ₪%.2f to ₪%.2f",
+                            "Price changed from $%.2f to $%.2f",
                     pricingRequest.getCityName(),
                     pricingRequest.getCurrentPrice(),
                     pricingRequest.getProposedPrice());
@@ -299,7 +299,7 @@ public class PricingHandler {
             String title = "Pricing Request Rejected";
             String body = String.format(
                     "Your pricing request for %s has been rejected.\n\n" +
-                            "Proposed price: ₪%.2f → ₪%.2f\n\n" +
+                            "Proposed price: $%.2f → $%.2f\n\n" +
                             "Reason: %s",
                     pricingRequest.getCityName(),
                     pricingRequest.getCurrentPrice(),
@@ -350,7 +350,7 @@ public class PricingHandler {
         if (price <= 0) {
             result.addGeneralError("Price must be greater than 0");
         } else if (price > 10000) {
-            result.addGeneralError("Price cannot exceed ₪10,000");
+            result.addGeneralError("Price cannot exceed $10,000");
         }
 
         // Validate reason

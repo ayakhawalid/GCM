@@ -84,13 +84,13 @@
                 <HBox spacing="20" alignment="CENTER">
                     <VBox alignment="CENTER" spacing="5" style="-fx-background-color: #ffebee; -fx-background-radius: 8; -fx-padding: 15;" HBox.hgrow="ALWAYS">
                         <Label text="Current Price" style="-fx-text-fill: #7f8c8d; -fx-font-size: 11px;"/>
-                        <Label fx:id="detailCurrentLabel" text="₪0.00" 
+                        <Label fx:id="detailCurrentLabel" text="$0.00" 
                                style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #c0392b;"/>
                     </VBox>
                     <Label text="→" style="-fx-font-size: 24px; -fx-text-fill: #95a5a6;"/>
                     <VBox alignment="CENTER" spacing="5" style="-fx-background-color: #e8f5e9; -fx-background-radius: 8; -fx-padding: 15;" HBox.hgrow="ALWAYS">
                         <Label text="Proposed Price" style="-fx-text-fill: #7f8c8d; -fx-font-size: 11px;"/>
-                        <Label fx:id="detailProposedLabel" text="₪0.00" 
+                        <Label fx:id="detailProposedLabel" text="$0.00" 
                                style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #27ae60;"/>
                     </VBox>
                 </HBox>
