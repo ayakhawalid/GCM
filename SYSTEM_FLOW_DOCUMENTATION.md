@@ -1,4 +1,4 @@
-# GCM (Geo City Maps) — Complete System Flow Documentation
+# GCM (Global City Maps) — Complete System Flow Documentation
 
 This document describes architecture, protocol, server dispatch, sessions, and **end-to-end flows** for major features (auth, search, map editing, approvals, purchases, support, etc.). It is written for developers maintaining the codebase: detailed enough to trace **classes, `MessageType`s, and data layers**, with repetitive steps **grouped** where possible. For exact SQL and edge cases, use the DAO classes and `dummy_db.sql`.
 
