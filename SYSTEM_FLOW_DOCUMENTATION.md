@@ -307,15 +307,16 @@ Each session stores:
    - Username (3–20 characters)
    - Email (valid format)
    - Password (≥4 characters, confirmed)
-   - Phone
-   - Card last 4 digits (exactly 4 digits)
+   - Phone (Optional)
+   - Credit card information (Optional)
 
 2. **Client validation** (`RegistrationController`):
    - Checks all fields are non-empty.
    - Validates username length (3–20).
    - Validates email format via regex.
    - Checks password matches confirmation.
-   - Validates card is exactly 4 digits.
+   - Checks phone number is 10 numbers.
+   - Validates card.
    - If any check fails, shows error dialog and stops.
 
 3. **Client sends request** (`RegistrationController`):
