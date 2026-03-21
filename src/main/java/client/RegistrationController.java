@@ -398,8 +398,8 @@ public class RegistrationController {
             return true;
         }
         String digits = phone.trim();
-        if (!digits.matches("\\d{9}")) {
-            phoneErrorLabel.setText("Phone must be exactly 9 digits");
+        if (!digits.matches("\\d{10}")) {
+            phoneErrorLabel.setText("Phone must be exactly 10 digits");
             phoneErrorLabel.setStyle("-fx-text-fill: #e74c3c; -fx-font-size: 10px;");
             return false;
         }

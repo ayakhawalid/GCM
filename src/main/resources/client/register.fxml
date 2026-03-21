@@ -95,11 +95,11 @@
                     <Label fx:id="confirmPasswordErrorLabel" style="-fx-text-fill: #e74c3c; -fx-font-size: 10px;" text="" />
                 </VBox>
 
-                <!-- Phone Section (Optional, 9 digits if provided) -->
+                <!-- Phone Section (Optional, 10 digits if provided) -->
                 <VBox spacing="3.0" alignment="CENTER_LEFT">
-                    <Label text="Phone (optional, 9 digits)" style="-fx-text-fill: #34495e; -fx-font-size: 12px; -fx-font-weight: bold;" />
+                    <Label text="Phone (optional, 10 digits)" style="-fx-text-fill: #34495e; -fx-font-size: 12px; -fx-font-weight: bold;" />
                     <TextField fx:id="phoneField" 
-                               promptText="9 digits"
+                               promptText="10 digits"
                                prefHeight="35.0"
                                style="-fx-font-size: 13px; -fx-background-radius: 8; -fx-border-radius: 8; -fx-border-color: #dcdde1; -fx-border-width: 1.5; -fx-padding: 6 12 6 12;" />
                     <Label fx:id="phoneErrorLabel" style="-fx-text-fill: #e74c3c; -fx-font-size: 10px;" text="" />
