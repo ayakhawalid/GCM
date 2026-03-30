@@ -79,7 +79,7 @@
                     <Label fx:id="selectedCityLabel" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #2d3436;" text="(Select a city from the table)" />
                     <HBox alignment="CENTER_LEFT" spacing="10">
                         <Label style="-fx-text-fill: #7f8c8d;" text="Current Price:" />
-                        <Label fx:id="currentPriceLabel" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #27ae60;" text="$0.00" />
+                        <Label fx:id="currentPriceLabel" style="-fx-font-size: 16px; -fx-font-weight: bold; -fx-text-fill: #27ae60;" text="0.00" />
                     </HBox>
                 </VBox>
 
